@@ -34,10 +34,10 @@ cargo run
 - **Auth แบบเบา** — สมัครด้วยชื่อ รับ bearer token เก็บใน localStorage (ไม่มีรหัสผ่าน เพราะเป็น demo)
 - **Servers / Guilds** — สร้างเซิร์ฟเวอร์, ค้นหาเซิร์ฟเวอร์, เข้าร่วม, บทบาท `owner / admin / member`
 - **Channels** — ช่องข้อความ (slug อัตโนมัติ) และช่องเสียง แยกกลุ่มใน sidebar
-- **Messages** — ส่ง / โหลดประวัติ / ลบ (เฉพาะเจ้าของข้อความหรือ admin) / จัดกลุ่มข้อความ / markdown เบา ๆ / ป้องกัน XSS
-- **Realtime** — WebSocket gateway: ข้อความใหม่, ลบ, ช่องใหม่, สมาชิกใหม่, typing indicator, presence online/offline
+- **Messages** — ส่ง / โหลดประวัติ / ลบ / ตอบกลับพร้อม quote ต้นฉบับ / ปฏิกิริยา (reaction) แบบ toggle / จัดกลุ่มข้อความ / markdown เบา ๆ / ป้องกัน XSS
+- **Realtime** — WebSocket gateway: ข้อความใหม่, แก้ไขปฏิกิริยา, ลบ, ช่องใหม่, สมาชิกใหม่, typing indicator, presence online/offline
 - **Voice presence** — เข้า/ออกห้องเสียง เห็นรายชื่อคนในห้องแบบ realtime *(signalling อย่างเดียว ยังไม่มีเสียงจริง)*
-- **UX** — unread badge, reconnect อัตโนมัติ, heartbeat, toast, modal, theme สว่าง/มืด, responsive
+- **UX** — แบ่งวัน, empty state, toolbar ตอน hover, โปรไฟล์popout, เมนูเซิร์ฟเวอร์/ช่อง/สถานะ, ค้นหาในช่อง, emoji picker, นับตัวอักษร, reply bar, jump-to-present, unread/mention badge, ยุบหมวดหมู่, mic/deafen, reconnect, heartbeat, toast, modal, theme สว่าง/มืด, responsive, คีย์ลัด
 - **Persistence** — เขียน `data/store.json` แบบ temp-file + rename (กันไฟล์เสียครึ่งเดียว) รีสตาร์ทแล้วข้อมูลยังอยู่
 - **Seed data** — เซิร์ฟเวอร์ `Outbox HQ` + 4 ช่อง + ข้อความต้อนรับ พร้อมใช้งานทันที
 
@@ -61,7 +61,7 @@ Browser ──REST /api/*──────────► axum Router ──►
 | `src/model.rs` | domain types, API payloads, `Event` / `ClientEvent`, seed data |
 | `src/state.rs` | shared state, presence, voice, broadcast, JSON persistence + unit tests |
 | `src/error.rs` | `ApiError` → HTTP status + JSON error |
-| `src/handlers.rs` | REST handlers + `Auth` extractor + validation + authorization |
+| `src/handlers/` | REST handlers แยกตามโดเมน (auth/servers/channels/messages/voice) + `Auth` extractor + validation + authorization |
 | `src/ws.rs` | WebSocket gateway, membership-filtered fan-out, heartbeat, cleanup |
 | `web/*` | Discord-like UI (vanilla, ไม่มี build step) |
 
@@ -83,8 +83,9 @@ Browser ──REST /api/*──────────► axum Router ──►
 | POST | `/api/servers/{id}/join` | — | เข้าร่วมเซิร์ฟเวอร์ |
 | POST | `/api/servers/{id}/channels` | `{ "name", "kind": "text"\|"voice", "topic"? }` | สร้างช่อง |
 | GET | `/api/channels/{id}/messages` | `?limit=60&before=<id>` | ประวัติข้อความ |
-| POST | `/api/channels/{id}/messages` | `{ "content" }` | ส่งข้อความ |
+| POST | `/api/channels/{id}/messages` | `{ "content", "reply_to"?: "<id>" }` | ส่งข้อความ (ตอบกลับได้) |
 | DELETE | `/api/messages/{id}` | — | ลบข้อความ (204) |
+| POST | `/api/messages/{id}/reactions` | `{ "emoji": "🔥" }` | สลับปฏิกิริยา เปิด/ปิด |
 | POST | `/api/channels/{id}/voice/join` | — | เข้าห้องเสียง *(ต้องมี WebSocket ที่เชื่อมต่ออยู่)* |
 | POST | `/api/channels/{id}/voice/leave` | — | ออกห้องเสียง |
 
@@ -100,7 +101,11 @@ curl -s localhost:3000/api/bootstrap -H "Authorization: Bearer $TOKEN" | jq
 
 curl -s -X POST localhost:3000/api/channels/demo-0/messages \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"content":"Hello from Rust 🦀"}' | jq
+  -d '{"content":"สวัสดีทุกคน 👋"}' | jq
+
+curl -s -X POST localhost:3000/api/messages/seed-0/reactions \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"emoji":"🔥"}' | jq
 ```
 
 ### WebSocket
@@ -109,7 +114,7 @@ curl -s -X POST localhost:3000/api/channels/demo-0/messages \
 ws://localhost:3000/api/ws?token=<token>
 ```
 
-Server → client: `ready`, `presence`, `message_create`, `message_delete`, `channel_create`, `server_create`, `member_join`, `typing`, `voice_state`, `heartbeat`, `pong`
+Server → client: `ready`, `presence`, `message_create`, `message_update`, `message_delete`, `channel_create`, `server_create`, `member_join`, `typing`, `voice_state`, `heartbeat`, `pong`
 Client → server: `{ "type": "typing", "channel_id": "..." }`, `{ "type": "ping" }`
 
 Event ที่มี `server_id` จะถูกกรองให้เฉพาะสมาชิกของเซิร์ฟเวอร์นั้นก่อนส่งออก (`src/ws.rs`)
@@ -131,7 +136,8 @@ cargo build --release
 | รหัสผ่าน / OAuth | argon2 + JWT + refresh token, ย้าย token ออกจาก JSON store |
 | ฐานข้อมูลจริง | sqlx + Postgres (schema ตรงกับ `Store`) + migration |
 | ขยายหลายเครื่อง | Redis/NATS pub/sub แทน `tokio::broadcast`, sticky session หรือ gateway แยก |
-| อัปโหลดไฟล์ / อีโมจิ / reactions | object storage + ตาราง attachments |
+| อัปโหลดไฟล์ / แนบรูป / สติกเกอร์ | object storage + ตาราง attachments |
+| แก้ไขข้อความ, pin, threads | `PATCH /messages/{id}`, ตาราง pinned_messages, `thread_id` |
 | Permission ละเอียด, DM, threads, E2EE | role/permission bitfield, direct-message channels, MLS |
 | Rate limit, moderation | tower `RateLimitLayer`, word filter, audit log |
 

@@ -8,6 +8,8 @@ A Discord-style realtime chat app. Rust backend (`src/`), zero-build vanilla fro
 - Do not present technical documents (e.g. `README.md`) as result cards, and keep update replies non-technical. The README stays in the repo for development, but is not displayed.
 - Prefer keeping seeded demo content friendly and neutral: `general`, `team-chat`, `random`, `Lounge`.
 - Verify UI changes in a real browser before reporting done; clear test accounts from the database before handoff.
+- Current source layout: `src/main.rs`, `src/model.rs`, `src/state.rs`, `src/error.rs`, `src/ws.rs`, and `src/handlers/` (module dir: mod/auth/servers/channels/messages/voice) — do not recreate `src/handlers.rs`.
+- UX bar is set high: the user compares detail level against Discord (hover states, reactions, replies, popouts, search, status, empty states, keyboard shortcuts). Prefer functional detail over decorative changes.
 
 ## กฎการทำงาน (Working Rules)
 - **ภาษาและข้อความบนหน้าจอ (UI Copy)**: ใช้ภาษาไทยที่เข้าใจง่ายสำหรับผู้ใช้งานจริง ห้ามแสดงศัพท์เทคนิค ชื่อเฟรมเวิร์ก ชื่อไลบรารี ชื่อไฟล์ หรือเอกสารทางเทคนิคบน UI

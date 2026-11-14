@@ -315,7 +315,11 @@ html[data-theme="light"] .msg .content .mention { color: #3b45c4; }
 .modal-actions .primary-btn { width: auto; margin: 0; padding: 10px 20px; }
 .ghost-btn { padding: 10px 16px; color: var(--muted); border-radius: 6px; }
 .ghost-btn:hover { color: var(--text); text-decoration: underline; }
-.toast-stack { position: fixed; right: 18px; bottom: 18px; z-index: 80; display: flex; flex-direction: column; gap: 8px; }
+.toast-stack {
+  position: fixed; right: 18px; bottom: 96px; z-index: 80;
+  display: flex; flex-direction: column; gap: 8px;
+  max-height: calc(100vh - 150px); overflow: hidden; pointer-events: none;
+}
 .toast {
   background: var(--elevated); border-left: 3px solid var(--brand); border-radius: 6px;
   padding: 10px 14px; box-shadow: var(--shadow); font-size: 13px; max-width: 320px;

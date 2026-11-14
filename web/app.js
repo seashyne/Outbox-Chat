@@ -87,6 +87,14 @@
     const found = STATUS_LIST.find((s) => s.key === state.myStatus) || STATUS_LIST[0];
     return found.dot;
   }
+  function isOnline(userId) {
+    if (state.me && userId === state.me.id && state.myStatus === 'invisible') return false;
+    return state.online.has(userId);
+  }
+  function activityText(userId) {
+    if (state.me && userId === state.me.id) return statusLabel(state.myStatus);
+    return 'กำลังออนไลน์';
+  }
   function closeOverlays() {
     $('overlay').hidden = true;
     $('profilePopout').hidden = true;
@@ -247,7 +255,7 @@
   function openProfile(userId, anchor) {
     const user = userById(userId);
     const server = currentServer();
-    const online = state.online.has(userId);
+    const online = isOnline(userId);
     const isMe = state.me && userId === state.me.id;
     const role = userId === server?.owner_id ? 'เจ้าของเซิร์ฟเวอร์' : user.bot ? 'บอท' : 'สมาชิก';
     const node = $('profilePopout');
@@ -567,10 +575,10 @@
   function renderMembers() {
     const server = currentServer();
     if (!server) { $('memberList').innerHTML = ''; return; }
-    const online = server.members.filter((m) => state.online.has(m.id));
-    const offline = server.members.filter((m) => !state.online.has(m.id));
+    const online = server.members.filter((m) => isOnline(m.id));
+    const offline = server.members.filter((m) => !isOnline(m.id));
     const row = (m) => {
-      const online = state.online.has(m.id);
+      const online = isOnline(m.id);
       const isMe = state.me && m.id === state.me.id;
       const dot = isMe ? myStatusDot() : (online ? 'online' : '');
       return `
@@ -578,7 +586,7 @@
         <span class="avatar-wrap">${avatar(m, 'sm')}<span class="status-dot ${dot}"></span></span>
         <span class="who">
           <span class="m-name" style="${m.id === server.owner_id ? 'color:var(--amber)' : ''}">${escapeHtml(m.display_name)}</span>
-          ${online ? '<span class="m-activity">กำลังออนไลน์</span>' : ''}
+          ${online ? `<span class="m-activity">${escapeHtml(activityText(m.id))}</span>` : ''}
         </span>
         ${m.id === server.owner_id ? '<span class="member-role" title="เจ้าของเซิร์ฟเวอร์"></span>' : ''}
         ${m.bot ? '<span class="bot-tag">bot</span>' : ''}

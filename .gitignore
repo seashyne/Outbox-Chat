@@ -3,3 +3,5 @@
 /data/*.tmp
 *.log
 .DS_Store
+/.wrangler/
+/node_modules/
