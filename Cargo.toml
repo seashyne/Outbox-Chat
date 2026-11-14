@@ -1,0 +1,23 @@
+[package]
+name = "outbox-chat"
+version = "0.1.0"
+edition = "2021"
+description = "Outbox Chat - a Discord-like realtime chat system written in Rust"
+license = "MIT"
+
+[dependencies]
+axum = { version = "0.8", features = ["ws"] }
+tokio = { version = "1", features = ["full"] }
+tower-http = { version = "0.6", features = ["fs", "cors"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+futures-util = "0.3"
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+[profile.dev]
+opt-level = 0
+
+[profile.release]
+strip = true
+lto = true

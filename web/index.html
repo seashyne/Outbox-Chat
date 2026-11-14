@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="th" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Outbox Chat</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div id="login" class="login-overlay">
+    <div class="login-card">
+      <div class="login-mark">💬</div>
+      <h1>Outbox Chat</h1>
+      <p class="login-sub">พื้นที่พูดคุยสำหรับทีมและเพื่อนของคุณ<br />แชทได้ทันที ทุกที่ ทุกเวลา</p>
+      <label for="usernameInput">ตั้งชื่อที่ใช้แสดง</label>
+      <input id="usernameInput" type="text" maxlength="32" placeholder="เช่น มินท์" autocomplete="off" spellcheck="false" />
+      <button id="loginBtn" class="primary-btn">เข้าร่วมเลย →</button>
+      <p id="loginError" class="login-error"></p>
+      <div class="login-foot">ใส่ชื่อแล้วเริ่มคุยได้เลย ไม่ต้องสมัครสมาชิก</div>
+    </div>
+    <div class="login-bg-glow"></div>
+  </div>
+
+  <div id="shell" class="shell" hidden>
+    <nav class="rail" id="rail" aria-label="Servers"></nav>
+
+    <aside class="sidebar" id="sidebar">
+      <header class="server-header" id="serverHeader"></header>
+      <div class="channel-scroll" id="channelList"></div>
+      <div class="voice-panel" id="voicePanel" hidden></div>
+      <div class="voice-bar" id="voiceBar" hidden></div>
+      <div class="user-panel" id="userPanel"></div>
+    </aside>
+
+    <main class="chat">
+      <header class="chat-header" id="chatHeader"></header>
+      <div class="message-scroll" id="messageScroll">
+        <div class="channel-intro" id="channelIntro"></div>
+        <div id="messageList"></div>
+      </div>
+      <button class="jump-btn" id="jumpBtn" hidden>มีข้อความใหม่ ↓</button>
+      <div class="typing-row" id="typingRow"></div>
+      <div class="composer-wrap">
+        <div class="reply-bar" id="replyBar" hidden></div>
+        <div class="emoji-picker" id="emojiPicker" hidden></div>
+        <div class="composer" id="composer">
+          <button class="composer-add" id="attachBtn" title="แนบไฟล์">+</button>
+          <textarea id="messageInput" rows="1" maxlength="2000" placeholder="ส่งข้อความ..." spellcheck="false"></textarea>
+          <span class="char-count" id="charCount" hidden></span>
+          <button class="composer-emoji" id="emojiBtn" title="อีโมจิ">☺</button>
+          <button class="send-btn" id="sendBtn" title="ส่ง (Enter)">➤</button>
+        </div>
+        <div class="composer-hint">
+          <kbd>Enter</kbd> ส่ง · <kbd>Shift</kbd>+<kbd>Enter</kbd> ขึ้นบรรทัดใหม่ ·
+          <kbd>Esc</kbd> ยกเลิก · <span id="connStatus" class="conn-status">กำลังเชื่อมต่อ…</span>
+        </div>
+      </div>
+    </main>
+
+    <aside class="members" id="memberList" aria-label="Members"></aside>
+  </div>
+
+  <div class="overlay" id="overlay" hidden></div>
+  <div class="profile-popout" id="profilePopout" hidden></div>
+  <div class="dropdown" id="dropdown" hidden></div>
+
+  <div class="modal-backdrop" id="modalBackdrop" hidden>
+    <div class="modal">
+      <h2 id="modalTitle">สร้างใหม่</h2>
+      <p id="modalDesc"></p>
+      <div id="modalFields"></div>
+      <div class="modal-actions">
+        <button class="ghost-btn" id="modalCancel">ยกเลิก</button>
+        <button class="primary-btn" id="modalSubmit">สร้าง</button>
+      </div>
+      <p class="modal-error" id="modalError"></p>
+    </div>
+  </div>
+
+  <div class="toast-stack" id="toastStack"></div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
