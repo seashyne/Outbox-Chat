@@ -1299,6 +1299,7 @@
       if (state.replyTo) { clearReply(); return; }
       if (state.searchOpen) { clearSearch(); return; }
     }
+    if ($('shell').hidden) return;
     if (e.key === 'k' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); toggleSearch(); }
     if (e.key === '/' && document.activeElement !== $('messageInput') && !state.searchOpen) {
       e.preventDefault(); toggleSearch();
