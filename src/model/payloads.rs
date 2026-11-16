@@ -1,9 +1,6 @@
 //! REST API request/response DTOs and WebSocket event definitions.
 
-use super::{
-    Channel, ChannelKind, Id, MessageView, PublicUser, Role, Server, ServerRolesConfig,
-    UserSettings,
-};
+use super::{Channel, ChannelKind, Id, PublicUser, Role, ServerRolesConfig, UserSettings};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -192,102 +189,4 @@ pub struct Health {
     pub messages: usize,
     pub online: usize,
     pub note: &'static str,
-}
-
-/// Realtime events pushed from server to connected WebSocket clients.
-#[derive(Clone, Debug, Serialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
-pub enum Event {
-    MessageCreate {
-        server_id: Id,
-        message: MessageView,
-    },
-    MessageDelete {
-        server_id: Id,
-        channel_id: Id,
-        message_id: Id,
-    },
-    MessageUpdate {
-        server_id: Id,
-        message: MessageView,
-        actor_id: Id,
-    },
-    ChannelCreate {
-        server_id: Id,
-        channel: Channel,
-    },
-    ChannelDelete {
-        server_id: Id,
-        channel_id: Id,
-    },
-    ServerCreate {
-        server: Server,
-    },
-    ServerUpdate {
-        server: Server,
-    },
-    MemberRoleUpdate {
-        server_id: Id,
-        user_id: Id,
-        role: Role,
-    },
-    MemberJoin {
-        server_id: Id,
-        user: PublicUser,
-    },
-    MemberLeave {
-        server_id: Id,
-        user_id: Id,
-    },
-    Typing {
-        server_id: Id,
-        channel_id: Id,
-        user: PublicUser,
-    },
-    Presence {
-        online: Vec<Id>,
-    },
-    VoiceState {
-        server_id: Id,
-        channel_id: Id,
-        users: Vec<Id>,
-    },
-    UserUpdate {
-        user: PublicUser,
-    },
-    UserStatus {
-        user_id: Id,
-        status: String,
-    },
-}
-
-impl Event {
-    /// Returns the server ID used for membership filtering, or `None` for global events.
-    pub fn server_id(&self) -> Option<&str> {
-        match self {
-            Event::MessageCreate { server_id, .. }
-            | Event::MessageDelete { server_id, .. }
-            | Event::MessageUpdate { server_id, .. }
-            | Event::ChannelCreate { server_id, .. }
-            | Event::ChannelDelete { server_id, .. }
-            | Event::MemberJoin { server_id, .. }
-            | Event::MemberLeave { server_id, .. }
-            | Event::MemberRoleUpdate { server_id, .. }
-            | Event::Typing { server_id, .. }
-            | Event::VoiceState { server_id, .. } => Some(server_id),
-            Event::ServerCreate { server } | Event::ServerUpdate { server } => Some(&server.id),
-            Event::Presence { .. }
-            | Event::UserUpdate { .. }
-            | Event::UserStatus { .. } => None,
-        }
-    }
-}
-
-/// Commands accepted from connected WebSocket clients.
-#[derive(Debug, Deserialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
-pub enum ClientEvent {
-    Typing { channel_id: Id },
-    Status { status: String },
-    Ping,
 }

@@ -6,6 +6,7 @@
 import { loadBootstrap, loadMessages, renderAll } from './actions.js';
 import { api, handleError } from './api.js';
 import { closeOverlays } from './menus.js';
+import { leaveMeetingRoom } from './meeting_ui.js';
 import { renderRail } from './render_shell.js';
 import { closeSettingsModal } from './settings.js';
 import { $, ICONS, applyTheme, currentChannel, state } from './state.js';
@@ -88,11 +89,15 @@ export function logout(expired = false) {
     }).catch(() => {});
   }
   localStorage.removeItem('ob_token');
+  leaveMeetingRoom(state.joinedVoiceChannelId, () => {}).catch(() => {});
   state.token = '';
   state.me = null;
   state.servers = [];
   state.messages = [];
   state.voice = {};
+  state.voiceChannelId = null;
+  state.joinedVoiceChannelId = null;
+  state.meetingPeers.clear();
   state.userStatuses.clear();
   state.unread.clear();
   state.mentions.clear();

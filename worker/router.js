@@ -154,6 +154,49 @@ export function handleWsMessage(hub, ws, raw) {
     }
     return;
   }
+  if (payload?.type === "rtc_signal" && typeof payload.channel_id === "string" && typeof payload.to === "string") {
+    const channel = hub.store.channels[payload.channel_id];
+    if (
+      channel &&
+      channel.kind === "voice" &&
+      hub.isMember(channel.server_id, user.id) &&
+      hub.isMember(channel.server_id, payload.to) &&
+      payload.signal !== undefined
+    ) {
+      hub.emit(
+        {
+          type: "rtc_signal",
+          server_id: channel.server_id,
+          channel_id: channel.id,
+          from: user.id,
+          to: payload.to,
+          signal: payload.signal,
+        },
+        ws
+      );
+    }
+    return;
+  }
+  if (payload?.type === "meeting_state" && typeof payload.channel_id === "string") {
+    const channel = hub.store.channels[payload.channel_id];
+    if (channel && channel.kind === "voice" && hub.isMember(channel.server_id, user.id)) {
+      hub.emit(
+        {
+          type: "meeting_state",
+          server_id: channel.server_id,
+          channel_id: channel.id,
+          user_id: user.id,
+          muted: Boolean(payload.muted),
+          deafened: Boolean(payload.deafened),
+          video: Boolean(payload.video),
+          speaking: Boolean(payload.speaking),
+          data_saver: payload.data_saver !== false,
+        },
+        ws
+      );
+    }
+    return;
+  }
   if (payload?.type === "typing" && typeof payload.channel_id === "string") {
     const channel = hub.store.channels[payload.channel_id];
     if (channel && hub.isMember(channel.server_id, user.id)) {

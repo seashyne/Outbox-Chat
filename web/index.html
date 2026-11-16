@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="/css/chat.css" />
   <link rel="stylesheet" href="/css/overlays.css" />
   <link rel="stylesheet" href="/css/settings.css" />
+  <link rel="stylesheet" href="/css/meeting.css" />
 </head>
 <body>
   <div id="login" class="login-overlay">
@@ -69,6 +70,8 @@
 
     <main class="chat">
       <header class="chat-header" id="chatHeader"></header>
+      <section class="meeting-stage" id="meetingStage" hidden aria-label="ห้องประชุมเสียง"></section>
+      <div id="meetingAudio" hidden></div>
       <div class="message-scroll" id="messageScroll">
         <div class="channel-intro" id="channelIntro"></div>
         <div id="messageList"></div>

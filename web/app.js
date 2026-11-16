@@ -16,6 +16,7 @@ import {
 import { api, handleError, setUnauthorizedHandler, toast } from './js/api.js';
 import { bindAuthEvents, logout, start, toggleTheme } from './js/auth.js';
 import { bindMessageEvents } from './js/composer.js';
+import { joinMeetingRoom, leaveMeetingRoom, updateMeetingControl } from './js/meeting_ui.js';
 import {
   closeOverlays,
   handleDropdownKeydown,
@@ -99,27 +100,42 @@ async function handleVoiceClick(e) {
   const btn = e.target.closest('[data-action]');
   if (!btn) return;
   const action = btn.dataset.action;
+  const refreshVoiceUi = () => { renderSidebar(); renderHeader(); renderVoicePanel(); renderVoiceBar(); renderUserPanel(); };
   if (action === 'toggle-mute' || action === 'toggle-deafen') {
     if (action === 'toggle-mute') state.muted = !state.muted;
     else { state.deafened = !state.deafened; if (state.deafened) state.muted = true; }
-    renderUserPanel(); renderVoicePanel(); renderVoiceBar();
+    refreshVoiceUi();
+    updateMeetingControl(action === 'toggle-mute' ? 'mute' : 'deafen', refreshVoiceUi).catch(() => {});
     toast(state.deafened ? 'ปิดเสียงแล้ว' : state.muted ? 'ปิดไมโครโฟนแล้ว' : 'เปิดไมโครโฟนแล้ว');
     return;
   }
-  if (action !== 'voice-join' && action !== 'voice-leave') return;
-  if (action === 'voice-join' && (!state.ws || state.ws.readyState !== 1)) {
-    toast('กำลังเชื่อมต่ออยู่ กรุณารอสักครู่แล้วลองใหม่', 'err');
+  if (action === 'toggle-cam' || action === 'toggle-screen' || action === 'toggle-data-saver') {
+    const kind = action === 'toggle-cam' ? 'cam' : action === 'toggle-screen' ? 'screen' : 'data-saver';
+    try { await updateMeetingControl(kind, refreshVoiceUi); } catch (error) { handleError(error); }
+    return;
+  }
+  if (action === 'focus-text-chat') {
+    state.voiceChannelId = null;
+    refreshVoiceUi();
+    return;
+  }
+  if (action === 'focus-voice-room' && btn.dataset.id) {
+    selectChannel(btn.dataset.id);
+    return;
+  }
+  if (action === 'create-voice-room') {
+    openCreateChannel('voice');
     return;
   }
   const id = btn.dataset.id;
   try {
-    const result = await api(`/channels/${encodeURIComponent(id)}/voice/${action === 'voice-join' ? 'join' : 'leave'}`, { method: 'POST' });
-    if (result.users.length) state.voice[id] = result.users; else delete state.voice[id];
-    renderSidebar(); renderVoicePanel(); renderVoiceBar();
+    if (action === 'voice-join') await joinMeetingRoom(id, refreshVoiceUi);
+    else if (action === 'voice-leave') await leaveMeetingRoom(id, refreshVoiceUi);
   } catch (error) { handleError(error); }
 }
 $('voicePanel').addEventListener('click', handleVoiceClick);
 $('voiceBar').addEventListener('click', handleVoiceClick);
+$('meetingStage').addEventListener('click', handleVoiceClick);
 
 $('chatHeader').addEventListener('click', (e) => {
   const btn = e.target.closest('[data-action]');

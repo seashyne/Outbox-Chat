@@ -212,7 +212,10 @@ export async function selectChannel(id) {
     state.typing.clear();
     state.typingTimers.forEach((timer) => clearTimeout(timer));
     state.typingTimers.clear();
+    $('sidebar').classList.remove('mobile-open');
+    onCloseOverlaysHook();
     renderSidebar();
+    renderHeader();
     renderVoicePanel();
     renderTyping();
     return;
@@ -233,6 +236,7 @@ export async function selectChannel(id) {
   onCloseOverlaysHook();
   renderSidebar();
   renderHeader();
+  renderVoicePanel();
   renderTyping();
   renderRail();
   await loadMessages();

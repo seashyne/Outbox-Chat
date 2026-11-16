@@ -3,9 +3,11 @@
 //! Splits data entities (`mod.rs`), persistence/indexing store (`store.rs`),
 //! and REST/WebSocket wire payloads (`payloads.rs`).
 
+mod events;
 mod payloads;
 mod store;
 
+pub use events::*;
 pub use payloads::*;
 pub use store::Store;
 

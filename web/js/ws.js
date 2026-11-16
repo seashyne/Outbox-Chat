@@ -4,6 +4,7 @@
 
 import { appendMessage, loadMessages, refreshMessages } from './actions.js';
 import { setConn, toast } from './api.js';
+import { handleMeetingWsEvent } from './meeting_ui.js';
 import { nearBottom, renderMessages, scrollToBottom, updateJumpButton } from './render_chat.js';
 import {
   renderHeader,
@@ -189,9 +190,17 @@ export function handleEvent(event) {
     case 'voice_state':
       if (event.users.length) state.voice[event.channel_id] = event.users;
       else delete state.voice[event.channel_id];
+      if (state.me && state.joinedVoiceChannelId === event.channel_id && !event.users.includes(state.me.id)) {
+        state.joinedVoiceChannelId = null;
+      }
       renderSidebar();
       renderVoicePanel();
       renderVoiceBar();
+      handleMeetingWsEvent(event, () => { renderSidebar(); renderVoicePanel(); renderVoiceBar(); });
+      break;
+    case 'rtc_signal':
+    case 'meeting_state':
+      handleMeetingWsEvent(event, () => { renderSidebar(); renderVoicePanel(); renderVoiceBar(); });
       break;
     default:
       break;

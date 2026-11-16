@@ -19,6 +19,7 @@ import {
   userById,
   userStatusKey,
 } from './state.js';
+import { renderMeetingStage } from './meeting_ui.js';
 import { renderMessages } from './render_chat.js';
 import { memberRoleFor, roleMeta } from './server_templates.js';
 
@@ -43,9 +44,10 @@ export function renderRail() {
 }
 
 export function renderVoicePanel() {
-  const id = state.voiceChannelId;
-  const channel = currentServer()?.channels.find((c) => c.id === id);
-  if (!id || !channel || channel.kind !== 'voice') {
+  renderMeetingStage(renderSidebar, renderUserPanel);
+  const id = state.voiceChannelId || state.joinedVoiceChannelId;
+  const channel = state.servers.flatMap((s) => s.channels).find((c) => c.id === id && c.kind === 'voice');
+  if (!id || !channel) {
     $('voicePanel').hidden = true;
     return;
   }
@@ -65,7 +67,7 @@ export function renderVoicePanel() {
         <button class="vp-icon ${state.muted ? 'off' : ''}" data-action="toggle-mute" title="${state.muted ? 'เปิดไมโครโฟน' : 'ปิดไมโครโฟน'}">${ICONS.mic}</button>
         <button class="vp-icon ${state.deafened ? 'off' : ''}" data-action="toggle-deafen" title="${state.deafened ? 'เปิดเสียง' : 'ปิดเสียง'}">${ICONS.headphones}</button>` : ''}
     </div>
-    <div class="vp-note">ตอนนี้แสดงรายชื่อคนในห้อง ยังไม่รองรับการคุยด้วยเสียง</div>`;
+    <div class="vp-note">${state.meetingDataSaver ? 'โหมดประหยัดข้อมูล (~16 kbps + DTX)' : 'โหมดเสียงคมชัด (~48 kbps)'}</div>`;
 }
 
 export function renderVoiceBar() {
@@ -75,10 +77,10 @@ export function renderVoiceBar() {
   const channel = state.servers.flatMap((s) => s.channels).find((c) => c.id === channelId);
   $('voiceBar').hidden = false;
   $('voiceBar').innerHTML = `
-    <div class="vb-row">
+    <button type="button" class="vb-row" data-action="focus-voice-room" data-id="${escapeHtml(channelId)}" title="เปิดหน้าห้องประชุม" style="text-align:left;min-width:0;flex:1">
       <span class="vb-signal"><i></i><i></i><i></i></span>
-      <span class="vb-info"><b>เชื่อมต่อแล้ว</b><span>${escapeHtml(channel?.name || 'ห้องเสียง')}</span></span>
-    </div>
+      <span class="vb-info"><b>เชื่อมต่อแล้ว · ${state.meetingDataSaver ? 'ประหยัดข้อมูล' : 'คมชัด'}</b><span>${escapeHtml(channel?.name || 'ห้องเสียง')}</span></span>
+    </button>
     <div class="vb-actions">
       <button class="icon-btn ${state.muted ? 'off' : ''}" data-action="toggle-mute" title="ไมโครโฟน">${ICONS.mic}</button>
       <button class="icon-btn ${state.deafened ? 'off' : ''}" data-action="toggle-deafen" title="หูฟัง">${ICONS.headphones}</button>
@@ -162,7 +164,9 @@ export function renderUserPanel() {
 }
 
 export function renderHeader() {
-  const channel = currentChannel();
+  const channel = state.voiceChannelId
+    ? currentServer()?.channels.find((c) => c.id === state.voiceChannelId) || currentChannel()
+    : currentChannel();
   if (!channel) { $('chatHeader').innerHTML = ''; return; }
   const sidebarOpen = $('sidebar')?.classList.contains('mobile-open');
   $('chatHeader').innerHTML = `

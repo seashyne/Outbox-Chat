@@ -231,6 +231,7 @@ export class OutboxHub extends DurableObject {
       if (ws === excludeWs) continue;
       const meta = ws.deserializeAttachment();
       if (!meta?.userId) continue;
+      if (event.to && meta.userId !== event.to) continue;
       if (serverId && !this.isMember(serverId, meta.userId)) continue;
       try {
         ws.send(payload);

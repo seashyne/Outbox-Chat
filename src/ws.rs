@@ -73,6 +73,11 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, user: User) {
         loop {
             match events_rx.recv().await {
                 Ok(event) => {
+                    if let Some(target_id) = event.target_user_id() {
+                        if target_id != event_user {
+                            continue;
+                        }
+                    }
                     if let Some(server_id) = event.server_id() {
                         if !event_state.is_member(server_id, &event_user) {
                             continue;
@@ -140,6 +145,57 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, user: User) {
                             state.emit(Event::UserStatus {
                                 user_id: user_id.clone(),
                                 status: status_val,
+                            });
+                        }
+                    }
+                    Ok(ClientEvent::RtcSignal {
+                        channel_id,
+                        to,
+                        signal,
+                    }) => {
+                        let valid_server = state.store.read().ok().and_then(|s| {
+                            let c = s.channel(&channel_id)?;
+                            if c.kind != crate::model::ChannelKind::Voice {
+                                return None;
+                            }
+                            (s.is_member(&c.server_id, &user_id) && s.is_member(&c.server_id, &to))
+                                .then(|| c.server_id.clone())
+                        });
+                        if let Some(server_id) = valid_server {
+                            state.emit(Event::RtcSignal {
+                                server_id,
+                                channel_id,
+                                from: user_id.clone(),
+                                to,
+                                signal,
+                            });
+                        }
+                    }
+                    Ok(ClientEvent::MeetingState {
+                        channel_id,
+                        muted,
+                        deafened,
+                        video,
+                        speaking,
+                        data_saver,
+                    }) => {
+                        let valid_server = state.store.read().ok().and_then(|s| {
+                            let c = s.channel(&channel_id)?;
+                            if c.kind != crate::model::ChannelKind::Voice {
+                                return None;
+                            }
+                            s.is_member(&c.server_id, &user_id).then(|| c.server_id.clone())
+                        });
+                        if let Some(server_id) = valid_server {
+                            state.emit(Event::MeetingState {
+                                server_id,
+                                channel_id,
+                                user_id: user_id.clone(),
+                                muted,
+                                deafened,
+                                video,
+                                speaking,
+                                data_saver,
                             });
                         }
                     }
