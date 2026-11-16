@@ -128,6 +128,21 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, user: User) {
                             });
                         }
                     }
+                    Ok(ClientEvent::Status { status }) => {
+                        let status_val = status.trim().chars().take(32).collect::<String>();
+                        if !status_val.is_empty() {
+                            if let Ok(mut store) = state.store.write() {
+                                if let Some(u) = store.users.get_mut(&user_id) {
+                                    u.settings.status = status_val.clone();
+                                }
+                            }
+                            state.persist();
+                            state.emit(Event::UserStatus {
+                                user_id: user_id.clone(),
+                                status: status_val,
+                            });
+                        }
+                    }
                     Ok(ClientEvent::Ping) => {
                         let _ = outbound_tx.send(serde_json::json!({ "type": "pong" }).to_string());
                     }

@@ -51,10 +51,8 @@ impl AppState {
             let _ = fs::create_dir_all(parent);
         }
         let tmp = self.data_path.with_extension("json.tmp");
-        if fs::write(&tmp, json).is_ok() {
-            if fs::rename(&tmp, &self.data_path).is_err() {
-                let _ = fs::remove_file(&tmp);
-            }
+        if fs::write(&tmp, json).is_ok() && fs::rename(&tmp, &self.data_path).is_err() {
+            let _ = fs::remove_file(&tmp);
         }
     }
 

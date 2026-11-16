@@ -1,10 +1,11 @@
+mod crypto;
 mod error;
 mod handlers;
 mod model;
 mod state;
 mod ws;
 
-use axum::routing::{delete, get, post};
+use axum::routing::{delete, get, patch, post};
 use axum::Router;
 use state::AppState;
 use std::path::PathBuf;
@@ -30,13 +31,22 @@ async fn main() -> std::io::Result<()> {
     let api = Router::new()
         .route("/health", get(handlers::health))
         .route("/register", post(handlers::register))
+        .route("/login", post(handlers::login))
+        .route("/logout", post(handlers::logout))
         .route("/bootstrap", get(handlers::bootstrap))
+        .route(
+            "/users/@me/settings",
+            get(handlers::get_settings).patch(handlers::update_settings),
+        )
+        .route("/users/@me", patch(handlers::update_profile))
         .route(
             "/servers",
             get(handlers::list_servers).post(handlers::create_server),
         )
         .route("/servers/{id}/channels", post(handlers::create_channel))
         .route("/servers/{id}/join", post(handlers::join_server))
+        .route("/servers/{id}/leave", post(handlers::leave_server))
+        .route("/channels/{id}", delete(handlers::delete_channel))
         .route(
             "/channels/{id}/messages",
             get(handlers::list_messages).post(handlers::post_message),

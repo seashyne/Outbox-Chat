@@ -1,11 +1,16 @@
 {
   "name": "outbox-chat",
+  "account_id": "53add1a08ac3273459cb9c279394171b",
   "main": "worker/index.js",
   "compatibility_date": "2026-04-01",
   "workers_dev": true,
   "routes": [
     {
       "pattern": "outbox.lenout.com",
+      "custom_domain": true
+    },
+    {
+      "pattern": "api-outbox.lenout.com",
       "custom_domain": true
     }
   ],

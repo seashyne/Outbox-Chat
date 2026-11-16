@@ -12,7 +12,6 @@ A Discord-style realtime chat app. Rust backend (`src/`), zero-build vanilla fro
 - UX bar is set high: the user compares detail level against Discord (hover states, reactions, replies, popouts, search, status, empty states, keyboard shortcuts). Prefer functional detail over decorative changes.
 
 ## กฎการทำงาน (Working Rules)
-- **ภาษาและข้อความบนหน้าจอ (UI Copy)**: ใช้ภาษาไทยที่เข้าใจง่ายสำหรับผู้ใช้งานจริง ห้ามแสดงศัพท์เทคนิค ชื่อเฟรมเวิร์ก ชื่อไลบรารี ชื่อไฟล์ หรือเอกสารทางเทคนิคบน UI
-- **การจัดโครงสร้างโค้ด (Modular Structure)**: แยกไฟล์ตามหน้าที่และหมวดหมู่ฟีเจอร์อย่างชัดเจน (`src/handlers/{auth,servers,channels,messages,voice}.rs`, `src/model.rs`, `src/state.rs`, `src/ws.rs`, `web/*`)
-- **ความสมบูรณ์ของปุ่มและฟีเจอร์ (Interactive Actions)**: ทุกปุ่มบนหน้าจอต้องกดใช้งานได้จริงและอัปเดตสถานะแบบเรียลไทม์
-- **การตรวจสอบและข้อมูลเริ่มต้น (Verification & Clean Seed)**: ทดสอบด้วย `cargo test` ทุกครั้งหลังแก้ไข และรีเซ็ตข้อมูลทดสอบออกให้เหลือเฉพาะข้อมูลเริ่มต้น (`Outbox HQ`) ก่อนส่งมอบหรืออัปโหลดขึ้น GitHub
+- **ขนาดไฟล์และโครงสร้างโมดูล**: ทุกไฟล์โค้ดต้องยาว **ไม่เกิน 300 บรรทัด** แยกไฟล์และโฟลเดอร์ตามหน้าที่อย่างชัดเจน (เช่น `src/model/`, `src/crypto/`, `worker/`, `web/js/`, `web/css/`) และต้องมีคอมเมนต์/docstring อธิบายหน้าที่ของไฟล์และฟังก์ชันสำคัญ (ดูรายละเอียดใน `AGENTS.md`)
+- **โครงสร้างและการทดสอบ**: จัดไฟล์แยกโมดูลตามหน้าที่ ใช้ภาษาไทยเข้าใจง่ายไม่แสดงศัพท์เทคนิคบน UI, ไม่ใช้ emote/emoji ในงาน, และต้องผ่าน `cargo test` + E2E tests เสมอ
+- **ความสมบูรณ์และข้อมูลเริ่มต้น**: ทุกปุ่มและเมนูต้องทำงานได้จริงแบบเรียลไทม์ ทั้งฝั่ง Rust และ Cloudflare Workers และรีเซ็ตข้อมูลเหลือเฉพาะ seed เริ่มต้น (`Outbox HQ`) ก่อนส่งมอบ

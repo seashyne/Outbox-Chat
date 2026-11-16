@@ -50,3 +50,43 @@ pub async fn create_channel(
     });
     Ok(Json(channel))
 }
+
+pub async fn delete_channel(
+    State(state): State<Arc<AppState>>,
+    Auth(user): Auth,
+    Path(channel_id): Path<String>,
+) -> ApiResult<Json<serde_json::Value>> {
+    let server_id = {
+        let mut store = state.store.write().map_err(|_| ApiError::Internal)?;
+        let channel = store
+            .channels
+            .get(&channel_id)
+            .ok_or(ApiError::NotFound("channel"))?;
+        let server_id = channel.server_id.clone();
+        require_member(&store, &server_id, &user.id)?;
+        let role = store
+            .role(&server_id, &user.id)
+            .unwrap_or(crate::model::Role::Member);
+        if !role.can_manage() {
+            return Err(ApiError::Forbidden(
+                "only server owners and admins can delete channels",
+            ));
+        }
+        store.channels.remove(&channel_id);
+        if let Some(msgs) = store.messages.remove(&channel_id) {
+            for m in msgs {
+                store.message_index.remove(&m.id);
+            }
+        }
+        server_id
+    };
+    state.persist();
+    state.emit(Event::ChannelDelete {
+        server_id,
+        channel_id: channel_id.clone(),
+    });
+    Ok(Json(serde_json::json!({
+        "success": true,
+        "channel_id": channel_id,
+    })))
+}

@@ -1,4 +1,4 @@
-# Outbox Chat 🦀
+# Outbox Chat
 
 ระบบแชทแบบ Discord ที่เขียนด้วย **Rust ทั้งสาย** (backend) + HTML/CSS/JS vanilla (frontend)
 ทำงานได้จริง ไม่ใช่ mock: หลายคน หลายแท็บ คุยกัน realtime ผ่าน WebSocket
@@ -85,7 +85,7 @@ Browser ──REST /api/*──────────► axum Router ──►
 | GET | `/api/channels/{id}/messages` | `?limit=60&before=<id>` | ประวัติข้อความ |
 | POST | `/api/channels/{id}/messages` | `{ "content", "reply_to"?: "<id>" }` | ส่งข้อความ (ตอบกลับได้) |
 | DELETE | `/api/messages/{id}` | — | ลบข้อความ (204) |
-| POST | `/api/messages/{id}/reactions` | `{ "emoji": "🔥" }` | สลับปฏิกิริยา เปิด/ปิด |
+| POST | `/api/messages/{id}/reactions` | `{ "emoji": "+1" }` | สลับปฏิกิริยา เปิด/ปิด |
 | POST | `/api/channels/{id}/voice/join` | — | เข้าห้องเสียง *(ต้องมี WebSocket ที่เชื่อมต่ออยู่)* |
 | POST | `/api/channels/{id}/voice/leave` | — | ออกห้องเสียง |
 
@@ -101,11 +101,11 @@ curl -s localhost:3000/api/bootstrap -H "Authorization: Bearer $TOKEN" | jq
 
 curl -s -X POST localhost:3000/api/channels/demo-0/messages \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"content":"สวัสดีทุกคน 👋"}' | jq
+  -d '{"content":"สวัสดีทุกคน"}' | jq
 
 curl -s -X POST localhost:3000/api/messages/seed-0/reactions \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"emoji":"🔥"}' | jq
+  -d '{"emoji":"+1"}' | jq
 ```
 
 ### WebSocket

@@ -143,8 +143,11 @@ pub async fn toggle_reaction(
     Json(body): Json<ReactionRequest>,
 ) -> ApiResult<Json<MessageView>> {
     let emoji: String = body.emoji.trim().chars().take(8).collect();
-    if emoji.is_empty() {
-        return Err(ApiError::BadRequest("emoji is required".into()));
+    const ALLOWED_REACTIONS: &[&str] = &["+1", "Like", "Ack", "Done", "Help", "Idea"];
+    if !ALLOWED_REACTIONS.contains(&emoji.as_str()) {
+        return Err(ApiError::BadRequest(
+            "only clean text reactions are supported".into(),
+        ));
     }
     let (view, server_id) = {
         let mut store = state.store.write().map_err(|_| ApiError::Internal)?;

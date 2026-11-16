@@ -4,15 +4,21 @@
 //! persists it and emits a realtime event for connected WebSocket clients.
 
 pub mod auth;
+#[cfg(test)]
+mod auth_tests;
 pub mod channels;
 pub mod messages;
 pub mod servers;
+#[cfg(test)]
+mod settings_tests;
+pub mod users;
 pub mod voice;
 
-pub use auth::{bootstrap, register};
-pub use channels::create_channel;
+pub use auth::{bootstrap, login, logout, register};
+pub use channels::{create_channel, delete_channel};
 pub use messages::{delete_message, list_messages, post_message, toggle_reaction};
-pub use servers::{create_server, join_server, list_servers};
+pub use servers::{create_server, join_server, leave_server, list_servers};
+pub use users::{get_settings, update_profile, update_settings};
 pub use voice::{voice_join, voice_leave};
 
 use crate::error::{ApiError, ApiResult};
@@ -24,6 +30,7 @@ use axum::Json;
 use std::sync::Arc;
 
 /// Extractor that resolves `Authorization: Bearer <token>` into a `User`.
+#[derive(Clone, Debug)]
 pub struct Auth(pub User);
 
 impl FromRequestParts<Arc<AppState>> for Auth {
@@ -53,6 +60,11 @@ impl FromRequestParts<Arc<AppState>> for Auth {
 }
 
 pub(crate) fn clean_text(raw: &str, max: usize, what: &str) -> ApiResult<String> {
+    if raw.chars().any(|c| c.is_control()) {
+        return Err(ApiError::BadRequest(format!(
+            "{what} cannot contain control characters"
+        )));
+    }
     let value = raw.trim();
     if value.is_empty() || value.chars().count() > max {
         return Err(ApiError::BadRequest(format!(

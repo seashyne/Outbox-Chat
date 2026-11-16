@@ -101,3 +101,35 @@ pub async fn join_server(
     }
     Ok(Json(view))
 }
+
+pub async fn leave_server(
+    State(state): State<Arc<AppState>>,
+    Auth(user): Auth,
+    Path(server_id): Path<String>,
+) -> ApiResult<Json<serde_json::Value>> {
+    {
+        let mut store = state.store.write().map_err(|_| ApiError::Internal)?;
+        let server = store
+            .servers
+            .get(&server_id)
+            .ok_or(ApiError::NotFound("server"))?;
+        if server.owner_id == user.id {
+            return Err(ApiError::BadRequest("server owner cannot leave the server".into()));
+        }
+        if !store.is_member(&server_id, &user.id) {
+            return Err(ApiError::BadRequest("you are not a member of this server".into()));
+        }
+        if let Some(members) = store.members.get_mut(&server_id) {
+            members.remove(&user.id);
+        }
+    }
+    state.persist();
+    state.emit(Event::MemberLeave {
+        server_id: server_id.clone(),
+        user_id: user.id.clone(),
+    });
+    Ok(Json(serde_json::json!({
+        "success": true,
+        "server_id": server_id,
+    })))
+}

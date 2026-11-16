@@ -1,0 +1,92 @@
+/* Outbox Chat — Settings modal, avatar color swatches, theme preset cards, and custom color picker */
+.settings-modal {
+  width: min(520px, calc(100vw - 32px));
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+}
+.settings-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 14px;
+}
+.settings-header h2 { margin: 0; font-size: 20px; }
+.settings-tabs {
+  display: flex; gap: 6px; margin-bottom: 18px; padding: 4px;
+  background: var(--input); border-radius: 8px; border: 1px solid var(--border);
+}
+.settings-tab {
+  flex: 1; padding: 8px 12px; border-radius: 6px; font-size: 13px; font-weight: 600;
+  color: var(--muted); transition: all .15s ease;
+}
+.settings-tab:hover { color: var(--text); }
+.settings-tab.active {
+  background: var(--brand); color: #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .2);
+}
+.settings-profile-preview {
+  border-radius: 10px; overflow: hidden; border: 1px solid var(--border);
+  background: var(--sidebar); margin-bottom: 14px;
+}
+.sp-banner { height: 52px; background: var(--brand); transition: background .15s; }
+.sp-row {
+  display: flex; align-items: center; gap: 12px; padding: 0 14px 12px; margin-top: -18px;
+}
+.sp-row .avatar.lg {
+  width: 52px; height: 52px; flex: 0 0 52px; font-size: 18px;
+  border: 4px solid var(--sidebar);
+}
+.sp-meta { display: flex; flex-direction: column; margin-top: 16px; min-width: 0; }
+.sp-meta b { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-meta span { font-size: 12px; color: var(--muted); }
+
+.color-swatches { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.color-swatch {
+  width: 30px; height: 30px; border-radius: 50%; border: 2px solid transparent;
+  transition: transform .12s, border-color .12s;
+}
+.color-swatch:hover { transform: scale(1.08); }
+.color-swatch.active { border-color: var(--text); box-shadow: 0 0 0 2px var(--brand); }
+.custom-color-inline { display: flex; align-items: center; gap: 8px; }
+.custom-color-inline input[type="color"],
+.palette-inputs input[type="color"] {
+  width: 42px; height: 38px; padding: 2px; border-radius: 6px;
+  border: 1px solid var(--border); background: var(--input); cursor: pointer; flex: 0 0 42px;
+}
+.custom-color-inline input[type="text"],
+.palette-inputs input[type="text"] {
+  font-family: "JetBrains Mono", Consolas, monospace; font-size: 13px;
+}
+
+.theme-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 8px; margin-bottom: 14px;
+}
+.theme-card {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 10px 8px; border-radius: 8px; background: var(--input);
+  border: 2px solid transparent; transition: border-color .15s, background .15s;
+}
+.theme-card:hover { background: var(--hover); }
+.theme-card.active { border-color: var(--brand); background: var(--active); }
+.tc-preview { width: 100%; height: 28px; border-radius: 5px; border: 1px solid rgba(255, 255, 255, .12); }
+.tc-dark { background: linear-gradient(135deg, #2b2d31 50%, #5865f2 50%); }
+.tc-light { background: linear-gradient(135deg, #f2f3f5 50%, #5865f2 50%); }
+.tc-slate { background: linear-gradient(135deg, #1e293b 50%, #38bdf8 50%); }
+.tc-forest { background: linear-gradient(135deg, #11261c 50%, #10b981 50%); }
+.tc-midnight { background: linear-gradient(135deg, #0e101a 50%, #8b5cf6 50%); }
+.tc-amber { background: linear-gradient(135deg, #241c14 50%, #f59e0b 50%); }
+.tc-custom { background: linear-gradient(135deg, var(--sidebar) 33%, var(--chat) 33%, var(--chat) 66%, var(--brand) 66%); }
+.tc-name { font-size: 12px; font-weight: 600; color: var(--text); }
+
+.palette-controls { display: flex; flex-direction: column; gap: 10px; }
+.palette-field {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 8px 10px; border-radius: 8px; background: var(--sidebar); border: 1px solid var(--border);
+}
+.palette-field > span { font-size: 13px; font-weight: 600; color: var(--text); }
+.palette-inputs { display: flex; align-items: center; gap: 8px; width: 170px; }
+
+.settings-actions {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin-top: 22px; padding-top: 14px; border-top: 1px solid var(--border);
+}
+.settings-actions .primary-btn { width: auto; margin: 0; padding: 10px 20px; }

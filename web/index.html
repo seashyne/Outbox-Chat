@@ -6,18 +6,35 @@
   <title>Outbox Chat</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/css/layout.css" />
+  <link rel="stylesheet" href="/css/chat.css" />
+  <link rel="stylesheet" href="/css/overlays.css" />
+  <link rel="stylesheet" href="/css/settings.css" />
 </head>
 <body>
   <div id="login" class="login-overlay">
     <div class="login-card">
-      <div class="login-mark">💬</div>
+      <div class="login-mark">
+        <svg viewBox="0 0 24 24" width="34" height="34" fill="#ffffff"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+      </div>
       <h1>Outbox Chat</h1>
       <p class="login-sub">พื้นที่พูดคุยสำหรับทีมและเพื่อนของคุณ<br />แชทได้ทันที ทุกที่ ทุกเวลา</p>
-      <label for="usernameInput">ตั้งชื่อที่ใช้แสดง</label>
-      <input id="usernameInput" type="text" maxlength="32" placeholder="เช่น มินท์" autocomplete="off" spellcheck="false" />
-      <button id="loginBtn" class="primary-btn">เข้าร่วมเลย →</button>
+
+      <div class="auth-tabs" role="tablist">
+        <button type="button" class="auth-tab active" id="tabLogin" role="tab" aria-selected="true">เข้าสู่ระบบ</button>
+        <button type="button" class="auth-tab" id="tabRegister" role="tab" aria-selected="false">สมัครสมาชิก</button>
+      </div>
+
+      <div class="auth-fields">
+        <label for="usernameInput">ชื่อผู้ใช้</label>
+        <input id="usernameInput" type="text" maxlength="32" placeholder="ชื่อผู้ใช้ (1-32 ตัวอักษร)" autocomplete="username" spellcheck="false" />
+        <label for="passwordInput">รหัสผ่าน</label>
+        <input id="passwordInput" type="password" maxlength="128" placeholder="รหัสผ่าน (อย่างน้อย 8 ตัวอักษร)" autocomplete="current-password" />
+        <button id="loginBtn" class="primary-btn">เข้าสู่ระบบ</button>
+      </div>
+
       <p id="loginError" class="login-error"></p>
-      <div class="login-foot">ใส่ชื่อแล้วเริ่มคุยได้เลย ไม่ต้องสมัครสมาชิก</div>
+      <div class="login-foot">ระบบยืนยันตัวตน Outbox Chat</div>
     </div>
     <div class="login-bg-glow"></div>
   </div>
@@ -39,7 +56,7 @@
         <div class="channel-intro" id="channelIntro"></div>
         <div id="messageList"></div>
       </div>
-      <button class="jump-btn" id="jumpBtn" hidden>มีข้อความใหม่ ↓</button>
+      <button class="jump-btn" id="jumpBtn" hidden>มีข้อความใหม่</button>
       <div class="typing-row" id="typingRow"></div>
       <div class="composer-wrap">
         <div class="reply-bar" id="replyBar" hidden></div>
@@ -48,8 +65,7 @@
           <button class="composer-add" id="attachBtn" title="แนบไฟล์">+</button>
           <textarea id="messageInput" rows="1" maxlength="2000" placeholder="ส่งข้อความ..." spellcheck="false"></textarea>
           <span class="char-count" id="charCount" hidden></span>
-          <button class="composer-emoji" id="emojiBtn" title="อีโมจิ">☺</button>
-          <button class="send-btn" id="sendBtn" title="ส่ง (Enter)">➤</button>
+          <button class="send-btn" id="sendBtn" title="ส่ง (Enter)"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
         </div>
         <div class="composer-hint">
           <kbd>Enter</kbd> ส่ง · <kbd>Shift</kbd>+<kbd>Enter</kbd> ขึ้นบรรทัดใหม่ ·
@@ -78,8 +94,126 @@
     </div>
   </div>
 
+  <div class="modal-backdrop" id="settingsBackdrop" hidden>
+    <div class="modal settings-modal" id="settingsModal" role="dialog" aria-labelledby="settingsTitle">
+      <div class="settings-header">
+        <h2 id="settingsTitle">ตั้งค่าผู้ใช้และธีม</h2>
+        <button class="icon-btn" id="settingsClose" title="ปิด (Esc)" aria-label="ปิดหน้าต่างตั้งค่า">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+
+      <div class="settings-tabs" role="tablist">
+        <button type="button" class="settings-tab active" data-settings-tab="profile" role="tab" aria-selected="true">โปรไฟล์และบัญชี</button>
+        <button type="button" class="settings-tab" data-settings-tab="appearance" role="tab" aria-selected="false">การแสดงผลและธีม</button>
+      </div>
+
+      <div class="settings-pane" id="settingsPaneProfile">
+        <div class="settings-profile-preview">
+          <div class="sp-banner" id="spBanner"></div>
+          <div class="sp-row">
+            <span class="avatar lg" id="spAvatar">OB</span>
+            <div class="sp-meta">
+              <b id="spDisplayName">ชื่อที่แสดง</b>
+              <span id="spUsername">@username</span>
+            </div>
+          </div>
+        </div>
+
+        <label for="settingsDisplayName">ชื่อที่แสดง (Display Name)</label>
+        <input id="settingsDisplayName" type="text" maxlength="32" placeholder="ชื่อที่แสดง (1-32 ตัวอักษร)" />
+
+        <label>สีอวาตาร์และแบนเนอร์</label>
+        <div class="color-swatches" id="avatarColorSwatches"></div>
+        <div class="custom-color-inline">
+          <input type="color" id="settingsAvatarColorPicker" value="#5865f2" aria-label="เลือกสีอวาตาร์" />
+          <input type="text" id="settingsAvatarColorHex" maxlength="7" placeholder="#5865f2" aria-label="รหัสสีอวาตาร์" />
+        </div>
+
+        <label for="settingsStatusSelect">สถานะการออนไลน์</label>
+        <select id="settingsStatusSelect">
+          <option value="online">ออนไลน์</option>
+          <option value="idle">ไม่อยู่</option>
+          <option value="dnd">ห้ามรบกวน</option>
+          <option value="invisible">ซ่อนตัว</option>
+        </select>
+
+        <div class="settings-actions">
+          <button type="button" class="ghost-btn danger-text" id="settingsLogoutBtn">ออกจากระบบ</button>
+          <button type="button" class="primary-btn" id="saveProfileBtn">บันทึกโปรไฟล์</button>
+        </div>
+      </div>
+
+      <div class="settings-pane" id="settingsPaneAppearance" hidden>
+        <label>ชุดธีมสำเร็จรูป (Theme Presets)</label>
+        <div class="theme-grid" id="themePresetGrid">
+          <button type="button" class="theme-card" data-theme-preset="dark">
+            <span class="tc-preview tc-dark"></span>
+            <span class="tc-name">Dark</span>
+          </button>
+          <button type="button" class="theme-card" data-theme-preset="light">
+            <span class="tc-preview tc-light"></span>
+            <span class="tc-name">Light</span>
+          </button>
+          <button type="button" class="theme-card" data-theme-preset="slate">
+            <span class="tc-preview tc-slate"></span>
+            <span class="tc-name">Slate</span>
+          </button>
+          <button type="button" class="theme-card" data-theme-preset="forest">
+            <span class="tc-preview tc-forest"></span>
+            <span class="tc-name">Forest</span>
+          </button>
+          <button type="button" class="theme-card" data-theme-preset="midnight">
+            <span class="tc-preview tc-midnight"></span>
+            <span class="tc-name">Midnight</span>
+          </button>
+          <button type="button" class="theme-card" data-theme-preset="amber">
+            <span class="tc-preview tc-amber"></span>
+            <span class="tc-name">Amber</span>
+          </button>
+          <button type="button" class="theme-card" data-theme-preset="custom">
+            <span class="tc-preview tc-custom"></span>
+            <span class="tc-name">Custom</span>
+          </button>
+        </div>
+
+        <label>ปรับแต่งชุดสีด้วยตัวเอง (Custom Color Palette)</label>
+        <div class="palette-controls">
+          <div class="palette-field">
+            <span>สีหลัก (Brand)</span>
+            <div class="palette-inputs">
+              <input type="color" id="customBrandPicker" value="#5865f2" aria-label="สีหลัก" />
+              <input type="text" id="customBrandHex" maxlength="7" value="#5865f2" aria-label="รหัสสีหลัก" />
+            </div>
+          </div>
+          <div class="palette-field">
+            <span>สีแถบข้าง (Sidebar)</span>
+            <div class="palette-inputs">
+              <input type="color" id="customSidebarPicker" value="#2b2d31" aria-label="สีแถบข้าง" />
+              <input type="text" id="customSidebarHex" maxlength="7" value="#2b2d31" aria-label="รหัสสีแถบข้าง" />
+            </div>
+          </div>
+          <div class="palette-field">
+            <span>สีพื้นหลังแชท (Chat)</span>
+            <div class="palette-inputs">
+              <input type="color" id="customChatPicker" value="#313338" aria-label="สีพื้นหลังแชท" />
+              <input type="text" id="customChatHex" maxlength="7" value="#313338" aria-label="รหัสสีพื้นหลังแชท" />
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-actions">
+          <button type="button" class="ghost-btn" id="resetThemeBtn">รีเซ็ตค่าเริ่มต้น</button>
+          <button type="button" class="primary-btn" id="saveThemeBtn">บันทึกธีม</button>
+        </div>
+      </div>
+
+      <p class="modal-error" id="settingsError"></p>
+    </div>
+  </div>
+
   <div class="toast-stack" id="toastStack"></div>
 
-  <script src="/app.js"></script>
+  <script type="module" src="/app.js"></script>
 </body>
 </html>
