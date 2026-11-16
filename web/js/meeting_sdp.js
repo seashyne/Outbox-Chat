@@ -9,6 +9,38 @@ let vadTimer = null;
 let audioCtx = null;
 let analyser = null;
 
+/** Minimum 480p@30fps up to Full HD 1080p@60fps screen share presets. */
+export const SCREEN_PRESETS = {
+  sd: { key: 'sd', label: '480p · 30fps', width: 854, height: 480, fps: 30, kbps: 800, hint: 'detail' },
+  hd: { key: 'hd', label: '720p · 30fps', width: 1280, height: 720, fps: 30, kbps: 1800, hint: 'detail' },
+  fhd: { key: 'fhd', label: 'Full HD · 60fps', width: 1920, height: 1080, fps: 60, kbps: 4500, hint: 'motion' },
+};
+
+const PRESET_ORDER = ['sd', 'hd', 'fhd'];
+
+/** Returns active screen-share preset config (defaults to 720p@30fps). */
+export function getScreenPreset() {
+  return SCREEN_PRESETS[state.meetingScreenPreset] || SCREEN_PRESETS.hd;
+}
+
+/** Advances screen-share quality preset in cycle: 480p30 -> 720p30 -> 1080p60. */
+export function cycleScreenPreset() {
+  const idx = PRESET_ORDER.indexOf(getScreenPreset().key);
+  state.meetingScreenPreset = PRESET_ORDER[(idx + 1) % PRESET_ORDER.length];
+  return getScreenPreset();
+}
+
+/** Builds `getDisplayMedia` video constraints for 480p..1080p at 30/60fps. */
+export function screenCaptureConstraints() {
+  const p = getScreenPreset();
+  return {
+    width: { ideal: p.width },
+    height: { ideal: p.height },
+    frameRate: { ideal: p.fps, max: p.fps },
+    resizeMode: 'none',
+  };
+}
+
 /** Rewrites Opus fmtp parameters for DTX silence suppression and target kbps. */
 export function tuneOpusSdp(sdp, dataSaver) {
   const kbps = dataSaver ? 16 : 48;
@@ -31,6 +63,7 @@ export function tuneOpusSdp(sdp, dataSaver) {
 /** Caps outbound audio/video sender bitrates and framerates on `pc`. */
 export async function applySenderCaps(pc) {
   const saver = Boolean(state.meetingDataSaver);
+  const scr = getScreenPreset();
   for (const sender of pc.getSenders()) {
     if (!sender.track) continue;
     const params = sender.getParameters();
@@ -38,8 +71,15 @@ export async function applySenderCaps(pc) {
     if (sender.track.kind === 'audio') {
       params.encodings[0].maxBitrate = saver ? 16_000 : 48_000;
     } else if (sender.track.kind === 'video') {
-      params.encodings[0].maxBitrate = saver ? 140_000 : 450_000;
-      params.encodings[0].maxFramerate = saver ? 12 : 24;
+      if (state.meetingScreen) {
+        params.encodings[0].maxBitrate = scr.kbps * 1000;
+        params.encodings[0].maxFramerate = scr.fps;
+        params.encodings[0].scaleResolutionDownBy = 1;
+        params.degradationPreference = scr.fps >= 60 ? 'maintain-framerate' : 'maintain-resolution';
+      } else {
+        params.encodings[0].maxBitrate = saver ? 140_000 : 450_000;
+        params.encodings[0].maxFramerate = saver ? 12 : 24;
+      }
     }
     try { await sender.setParameters(params); } catch {}
   }

@@ -6,7 +6,9 @@
 import { api } from './api.js';
 import {
   applySenderCaps,
+  getScreenPreset,
   samplePeersStats,
+  screenCaptureConstraints,
   startVadMonitor,
   stopVadMonitor,
   tuneOpusSdp,
@@ -214,7 +216,7 @@ export async function toggleMeetingVideo(kind = 'camera', forceOff = false) {
   if (!turningOff) {
     const saver = state.meetingDataSaver;
     nextStream = kind === 'screen'
-      ? await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: saver ? 10 : 15 }, audio: false })
+      ? await navigator.mediaDevices.getDisplayMedia({ video: screenCaptureConstraints(), audio: false })
       : await navigator.mediaDevices.getUserMedia({ video: { width: saver ? 320 : 640, height: saver ? 240 : 480, frameRate: saver ? 12 : 24 }, audio: false });
   }
 
@@ -225,6 +227,7 @@ export async function toggleMeetingVideo(kind = 'camera', forceOff = false) {
   const track = nextStream?.getVideoTracks()[0] || null;
   if (track) {
     localVideoStream = nextStream;
+    if (kind === 'screen' && 'contentHint' in track) track.contentHint = getScreenPreset().hint;
     track.onended = () => {
       if (localVideoStream?.getVideoTracks()[0] === track) toggleMeetingVideo(kind, true).catch(() => {});
     };
@@ -248,6 +251,17 @@ export async function toggleMeetingVideo(kind = 'camera', forceOff = false) {
   hooks.onLocalVideo(localVideoStream);
   broadcastMeetingState(false);
   hooks.onStateChange();
+}
+
+/** Updates active screen-share track constraints and sender bitrate live (480p..1080p60). */
+export async function updateScreenQuality() {
+  if (!state.meetingScreen || !localVideoStream) return;
+  const track = localVideoStream.getVideoTracks()[0];
+  if (track) {
+    if ('contentHint' in track) track.contentHint = getScreenPreset().hint;
+    try { await track.applyConstraints(screenCaptureConstraints()); } catch {}
+  }
+  for (const { pc } of peers.values()) await applySenderCaps(pc);
 }
 
 /** Tears down all WebRTC peers, audio/video tracks, stats, and VAD timers. */

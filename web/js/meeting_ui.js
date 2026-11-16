@@ -5,6 +5,7 @@
  */
 
 import { api, handleError, toast } from './api.js';
+import { cycleScreenPreset, getScreenPreset } from './meeting_sdp.js';
 import { memberRoleFor, roleMeta } from './server_templates.js';
 import { $, ICONS, avatar, escapeHtml, state, userById } from './state.js';
 
@@ -97,9 +98,11 @@ export function renderMeetingStage(renderSidebarFn, renderUserFn) {
     const stream = isMe ? localStreamRef : remoteStreams.get(uid);
     const liveVideo = Boolean(stream?.getVideoTracks().some((t) => t.enabled && t.readyState === 'live' && !t.muted));
     const hasVideo = isMe ? (Boolean(state.meetingVideo || state.meetingScreen) && liveVideo) : (peer.video !== false && liveVideo);
+    const isSpotlight = hasVideo && state.meetingSpotlightId === uid;
     const rMeta = roleMeta(server, memberRoleFor(server, uid));
     return `
-      <div class="meeting-tile ${speaking ? 'speaking' : ''} ${hasVideo ? 'has-video' : ''}">
+      <div class="meeting-tile ${speaking ? 'speaking' : ''} ${hasVideo ? 'has-video' : ''} ${isSpotlight ? 'spotlight' : ''}">
+        ${hasVideo ? `<button type="button" class="mt-zoom-btn" data-action="spotlight-peer" data-id="${escapeHtml(uid)}">${isSpotlight ? 'ย่อจอ' : 'ขยายจอ'}</button>` : ''}
         ${hasVideo
           ? `<video autoplay playsinline ${isMe ? 'muted' : ''} data-video-peer="${escapeHtml(uid)}"></video>`
           : avatar(u, 'lg')}
@@ -146,6 +149,7 @@ export function renderMeetingStage(renderSidebarFn, renderUserFn) {
           <button type="button" class="mt-btn danger" data-action="toggle-deafen" aria-pressed="${state.deafened ? 'true' : 'false'}" aria-label="เสียงลำโพง">${ICONS.headphones} <span>${state.deafened ? 'เปิดเสียง' : 'ปิดเสียง'}</span></button>
           <button type="button" class="mt-btn" data-action="toggle-cam" aria-pressed="${state.meetingVideo ? 'true' : 'false'}" aria-label="กล้อง">${ICONS.video} <span>กล้อง</span></button>
           <button type="button" class="mt-btn" data-action="toggle-screen" aria-pressed="${state.meetingScreen ? 'true' : 'false'}" aria-label="แชร์หน้าจอ">${ICONS.screen} <span>แชร์จอ</span></button>
+          <button type="button" class="mt-btn" data-action="cycle-screen-quality" aria-label="ความละเอียดแชร์หน้าจอ"><span>จอ: ${getScreenPreset().label}</span></button>
           <button type="button" class="mt-btn saver" data-action="toggle-data-saver" aria-pressed="${saver ? 'true' : 'false'}" aria-label="โหมดประหยัดข้อมูล">${ICONS.saver} <span>ประหยัดข้อมูล</span></button>
           <button type="button" class="mt-btn" data-action="focus-text-chat">กลับไปหน้าแชท</button>
           <button type="button" class="mt-btn leave" data-action="voice-leave" data-id="${escapeHtml(channel.id)}">${ICONS.logout} <span>ออกจากห้อง</span></button>
@@ -196,6 +200,7 @@ export async function leaveMeetingRoom(channelId, refreshUi) {
   remoteStreams.clear();
   localStreamRef = null;
   state.joinedVoiceChannelId = null;
+  state.meetingSpotlightId = null;
   state.meetingPeers.clear();
   if (targetId && state.token) {
     try {
@@ -227,6 +232,13 @@ export async function handleMeetingWsEvent(event, refreshUi) {
 
 /** Triggers RTC control updates (`mute`, `deafen`, `data-saver`, `cam`, `screen`). */
 export async function updateMeetingControl(kind, refreshUi) {
+  if (kind === 'screen-quality') {
+    const preset = cycleScreenPreset();
+    if (rtcMod) await rtcMod.updateScreenQuality();
+    toast(`ความละเอียดแชร์หน้าจอ: ${preset.label}`, 'ok');
+    refreshUi();
+    return;
+  }
   const rtc = await getRtc();
   if (kind === 'cam' || kind === 'screen') {
     try {

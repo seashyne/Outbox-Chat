@@ -106,6 +106,8 @@ export const state = {
   meetingDataSaver: true,
   meetingVideo: false,
   meetingScreen: false,
+  meetingScreenPreset: 'hd',
+  meetingSpotlightId: null,
   meetingListenOnly: false,
   meetingPeers: new Map(),
   meetingStats: { kbpsUp: 0, kbpsDown: 0, totalKb: 0, rttMs: null },

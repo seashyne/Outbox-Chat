@@ -109,9 +109,14 @@ async function handleVoiceClick(e) {
     toast(state.deafened ? 'ปิดเสียงแล้ว' : state.muted ? 'ปิดไมโครโฟนแล้ว' : 'เปิดไมโครโฟนแล้ว');
     return;
   }
-  if (action === 'toggle-cam' || action === 'toggle-screen' || action === 'toggle-data-saver') {
-    const kind = action === 'toggle-cam' ? 'cam' : action === 'toggle-screen' ? 'screen' : 'data-saver';
+  if (action === 'toggle-cam' || action === 'toggle-screen' || action === 'toggle-data-saver' || action === 'cycle-screen-quality') {
+    const kind = action === 'toggle-cam' ? 'cam' : action === 'toggle-screen' ? 'screen' : action === 'cycle-screen-quality' ? 'screen-quality' : 'data-saver';
     try { await updateMeetingControl(kind, refreshVoiceUi); } catch (error) { handleError(error); }
+    return;
+  }
+  if (action === 'spotlight-peer') {
+    state.meetingSpotlightId = state.meetingSpotlightId === btn.dataset.id ? null : btn.dataset.id;
+    refreshVoiceUi();
     return;
   }
   if (action === 'focus-text-chat') {
