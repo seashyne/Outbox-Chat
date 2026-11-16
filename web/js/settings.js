@@ -8,21 +8,59 @@ import { closeOverlays } from './menus.js';
 import { bindBackdropDismiss } from './modals.js';
 import { renderMessages } from './render_chat.js';
 import { renderMembers, renderRail, renderUserPanel } from './render_shell.js';
-import { $, AVATAR_COLORS, initials, normalizeHex6, safeColor, setModalInert, state, statusLabel } from './state.js';
+import { $, AVATAR_COLORS, escapeHtml, initials, normalizeHex6, safeAvatarUrl, safeColor, setModalInert, state, statusLabel } from './state.js';
 import { bindThemeEvents, loadThemeDraft } from './theme_settings.js';
 
 let settingsTab = 'profile';
 let draftAvatarColor = '#5865f2';
+let draftAvatarUrl = '';
 let lastSettingsFocus = null;
 
-/** Updates live avatar banner/initials preview and active color swatches. */
+/** Center-crops and compresses a selected image file into a compact 128x128 data URL. */
+async function resizeAvatarFile(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error('load failed'));
+      el.src = url;
+    });
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    const side = Math.min(img.width, img.height);
+    const sx = (img.width - side) / 2;
+    const sy = (img.height - side) / 2;
+    ctx.drawImage(img, sx, sy, side, side, 0, 0, size, size);
+    const webp = canvas.toDataURL('image/webp', 0.82);
+    if (webp.startsWith('data:image/webp') && webp.length <= 65000) return webp;
+    const jpeg = canvas.toDataURL('image/jpeg', 0.82);
+    if (jpeg.length <= 65000) return jpeg;
+    throw new Error('image too large');
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+/** Updates live avatar banner/initials/photo preview and active color swatches. */
 export function syncSettingsPreview() {
   if (!state.me) return;
   const nameInput = $('settingsDisplayName');
   const previewName = nameInput?.value.trim() || state.me.display_name || state.me.username || '?';
   $('spBanner').style.background = safeColor(draftAvatarColor);
-  $('spAvatar').style.background = safeColor(draftAvatarColor);
-  $('spAvatar').textContent = initials(previewName);
+  const av = $('spAvatar');
+  av.style.background = safeColor(draftAvatarColor);
+  const safeImg = safeAvatarUrl(draftAvatarUrl);
+  if (safeImg) {
+    av.innerHTML = `<img src="${escapeHtml(safeImg)}" alt="${escapeHtml(previewName)}" />`;
+  } else {
+    av.textContent = initials(previewName);
+  }
+  const clearBtn = $('clearAvatarBtn');
+  if (clearBtn) clearBtn.hidden = !safeImg;
   $('spDisplayName').textContent = previewName;
   $('spUsername').textContent = `@${state.me.username}`;
   document.querySelectorAll('#avatarColorSwatches .color-swatch').forEach((btn) => {
@@ -55,6 +93,7 @@ export function openSettingsModal(tab = 'profile') {
   $('settingsError').textContent = '';
   $('settingsDisplayName').value = state.me.display_name || '';
   draftAvatarColor = normalizeHex6(state.me.color, '#5865f2');
+  draftAvatarUrl = state.me.avatar_url || '';
   $('settingsStatusSelect').value = state.myStatus || 'online';
 
   $('avatarColorSwatches').innerHTML = AVATAR_COLORS.map((c) =>
@@ -95,7 +134,7 @@ export async function saveProfileSettings() {
     return;
   }
   if (!/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(colorHex)) {
-    $('settingsError').textContent = 'รหัสสีอวาตาร์ต้องเป็นรูปแบบ Hex เช่น #5865f2';
+    $('settingsError').textContent = 'กรุณาเลือกรหัสสีอวาตาร์ให้ถูกต้อง เช่น #5865f2';
     return;
   }
 
@@ -103,7 +142,11 @@ export async function saveProfileSettings() {
   try {
     const profileRes = await api('/users/@me', {
       method: 'PATCH',
-      body: JSON.stringify({ display_name: displayName, color: colorHex }),
+      body: JSON.stringify({
+        display_name: displayName,
+        color: colorHex,
+        avatar_url: draftAvatarUrl || '',
+      }),
     });
     if (profileRes?.user) {
       state.me = profileRes.user;
@@ -169,6 +212,24 @@ export function bindSettingsEvents(onLogout) {
     });
   });
   $('settingsDisplayName').addEventListener('input', syncSettingsPreview);
+  $('uploadAvatarBtn')?.addEventListener('click', () => $('avatarFileInput')?.click());
+  $('spAvatar')?.addEventListener('click', () => $('avatarFileInput')?.click());
+  $('clearAvatarBtn')?.addEventListener('click', () => {
+    draftAvatarUrl = '';
+    if ($('avatarFileInput')) $('avatarFileInput').value = '';
+    syncSettingsPreview();
+  });
+  $('avatarFileInput')?.addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    $('settingsError').textContent = '';
+    try {
+      draftAvatarUrl = await resizeAvatarFile(file);
+      syncSettingsPreview();
+    } catch {
+      $('settingsError').textContent = 'ไม่สามารถใช้รูปนี้ได้ กรุณาเลือกรูปภาพอื่นที่ขนาดไม่เกิน 5 MB';
+    }
+  });
   $('avatarColorSwatches').addEventListener('click', (e) => {
     const btn = e.target.closest('.color-swatch');
     if (!btn) return;

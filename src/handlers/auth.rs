@@ -70,6 +70,7 @@ pub async fn register(
         username: username.clone(),
         display_name: username.clone(),
         color,
+        avatar_url: None,
         token: new_token(),
         bot: false,
         created_at: now(),
@@ -243,6 +244,7 @@ pub async fn bootstrap(
                             username: u.username.clone(),
                             display_name: u.display_name.clone(),
                             color: u.color.clone(),
+                            avatar_url: u.avatar_url.clone(),
                             bot: u.bot,
                             role: *role,
                         });

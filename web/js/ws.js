@@ -163,6 +163,8 @@ export function handleEvent(event) {
         }
       }
       renderMembers();
+      renderVoicePanel();
+      renderSidebar();
       if (msgChanged) renderMessages();
       break;
     }

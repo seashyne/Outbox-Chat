@@ -67,7 +67,7 @@ export function renderVoicePanel() {
         <button class="vp-icon ${state.muted ? 'off' : ''}" data-action="toggle-mute" title="${state.muted ? 'เปิดไมโครโฟน' : 'ปิดไมโครโฟน'}">${ICONS.mic}</button>
         <button class="vp-icon ${state.deafened ? 'off' : ''}" data-action="toggle-deafen" title="${state.deafened ? 'เปิดเสียง' : 'ปิดเสียง'}">${ICONS.headphones}</button>` : ''}
     </div>
-    <div class="vp-note">${state.meetingDataSaver ? 'โหมดประหยัดข้อมูล (~16 kbps + DTX)' : 'โหมดเสียงคมชัด (~48 kbps)'}</div>`;
+    <div class="vp-note">${state.meetingDataSaver ? 'โหมดประหยัดเน็ต' : 'โหมดเสียงคมชัด'}</div>`;
 }
 
 export function renderVoiceBar() {

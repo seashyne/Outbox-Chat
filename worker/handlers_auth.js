@@ -205,7 +205,24 @@ export async function handleUpdateSettings(hub, request) {
   return jsonResponse({ settings: user.settings });
 }
 
-/** Updates display_name and avatar color and broadcasts `user_update`. */
+function parseAvatarUrl(raw) {
+  if (raw === null || raw === "") return null;
+  if (typeof raw !== "string") throw new HttpError(400, "invalid avatar image format or size");
+  const s = raw.trim();
+  if (!s) return null;
+  if (s.length > 65536 || /[\x00-\x1F\x7F<"']/.test(s)) {
+    throw new HttpError(400, "invalid avatar image format or size");
+  }
+  const ok =
+    s.startsWith("data:image/png;base64,") ||
+    s.startsWith("data:image/jpeg;base64,") ||
+    s.startsWith("data:image/webp;base64,") ||
+    s.startsWith("https://");
+  if (!ok) throw new HttpError(400, "invalid avatar image format or size");
+  return s;
+}
+
+/** Updates display_name, avatar color, or profile image and broadcasts `user_update`. */
 export async function handleUpdateProfile(hub, request) {
   const user = hub.authenticate(request);
   const body = await readJson(request);
@@ -218,6 +235,9 @@ export async function handleUpdateProfile(hub, request) {
       throw new HttpError(400, "invalid profile avatar color");
     }
     user.color = body.color.trim();
+  }
+  if (body.avatar_url !== undefined) {
+    user.avatar_url = parseAvatarUrl(body.avatar_url);
   }
 
   hub.persistStore();

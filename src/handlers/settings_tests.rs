@@ -64,12 +64,14 @@ async fn test_user_settings_and_profile_flow() {
     assert_eq!(patch_res["settings"]["custom_colors"]["brand"], "#123456");
 
     // 4. PATCH profile
+    let sample_png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aF9sAAAAASUVORK5CYII=";
     let prof_res = update_profile(
         State(state.clone()),
         auth,
         Json(UpdateProfileRequest {
             display_name: Some("Bobby".into()),
             color: Some("#abcdef".into()),
+            avatar_url: Some(sample_png.into()),
         }),
     )
     .await
@@ -77,6 +79,7 @@ async fn test_user_settings_and_profile_flow() {
     .0;
     assert_eq!(prof_res["user"]["display_name"], "Bobby");
     assert_eq!(prof_res["user"]["color"], "#abcdef");
+    assert_eq!(prof_res["user"]["avatar_url"], sample_png);
 }
 
 #[tokio::test]

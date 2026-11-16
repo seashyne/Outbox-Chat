@@ -106,6 +106,8 @@ pub struct ServerMemberView {
     pub username: String,
     pub display_name: String,
     pub color: String,
+    #[serde(default)]
+    pub avatar_url: Option<String>,
     pub bot: bool,
     pub role: Role,
 }
@@ -138,6 +140,8 @@ pub struct UpdateProfileRequest {
     pub display_name: Option<String>,
     #[serde(default)]
     pub color: Option<String>,
+    #[serde(default)]
+    pub avatar_url: Option<String>,
 }
 
 #[derive(Debug, Serialize)]

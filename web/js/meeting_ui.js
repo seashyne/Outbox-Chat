@@ -79,7 +79,6 @@ export function renderMeetingStage(renderSidebarFn, renderUserFn) {
   const users = state.voice[channel.id] || [];
   const inThisRoom = Boolean(state.me && state.joinedVoiceChannelId === channel.id && users.includes(state.me.id));
   const saver = Boolean(state.meetingDataSaver);
-  const stats = state.meetingStats || {};
   const canCreate = ['owner', 'admin'].includes(server.role) || server.roles_config?.allow_member_create_channel !== false;
 
   stage.hidden = false;
@@ -127,8 +126,7 @@ export function renderMeetingStage(renderSidebarFn, renderUserFn) {
         <div class="meeting-sub">${escapeHtml(channel.topic || 'ห้องสนทนาเสียงและแชร์หน้าจอแบบประหยัดข้อมูล')}</div>
       </div>
       <div class="meeting-metrics">
-        <span class="meeting-chip ${saver ? 'saver-on' : ''}">${ICONS.saver} ${saver ? 'ประหยัดข้อมูล (16 kbps)' : 'เสียงคมชัด (48 kbps)'}</span>
-        ${inThisRoom ? `<span class="meeting-chip">${stats.kbpsUp || 0} / ${stats.kbpsDown || 0} kbps · ${stats.totalKb || 0} KB${stats.rttMs != null ? ` · ${stats.rttMs} ms` : ''}</span>` : ''}
+        <span class="meeting-chip ${saver ? 'saver-on' : ''}">${ICONS.saver} ${saver ? 'โหมดประหยัดเน็ต' : 'โหมดเสียงคมชัด'}</span>
         ${canCreate ? `<button type="button" class="meeting-create-btn" data-action="create-voice-room">${ICONS.plus} สร้างห้องประชุม</button>` : ''}
       </div>
     </div>
@@ -138,7 +136,7 @@ export function renderMeetingStage(renderSidebarFn, renderUserFn) {
         : `<div class="meeting-empty">
              ${ICONS.voiceLg}
              <h3>ห้องประชุม "${escapeHtml(channel.name)}" พร้อมใช้งาน</h3>
-             <p>เชื่อมต่อเสียงแบบ P2P ทันทีพร้อมโหมดประหยัดข้อมูล (DTX ~16 kbps ปิดวิดีโออัตโนมัติ)</p>
+             <p>คุยเสียงและแชร์หน้าจอได้ทันที พร้อมโหมดประหยัดอินเทอร์เน็ต</p>
              <button type="button" class="meeting-join-cta" data-action="voice-join" data-id="${escapeHtml(channel.id)}">เข้าร่วมห้องประชุมทันที</button>
            </div>`}
     </div>
@@ -149,7 +147,7 @@ export function renderMeetingStage(renderSidebarFn, renderUserFn) {
           <button type="button" class="mt-btn danger" data-action="toggle-deafen" aria-pressed="${state.deafened ? 'true' : 'false'}" aria-label="เสียงลำโพง">${ICONS.headphones} <span>${state.deafened ? 'เปิดเสียง' : 'ปิดเสียง'}</span></button>
           <button type="button" class="mt-btn" data-action="toggle-cam" aria-pressed="${state.meetingVideo ? 'true' : 'false'}" aria-label="กล้อง">${ICONS.video} <span>กล้อง</span></button>
           <button type="button" class="mt-btn" data-action="toggle-screen" aria-pressed="${state.meetingScreen ? 'true' : 'false'}" aria-label="แชร์หน้าจอ">${ICONS.screen} <span>แชร์จอ</span></button>
-          <button type="button" class="mt-btn" data-action="cycle-screen-quality" aria-label="ความละเอียดแชร์หน้าจอ"><span>จอ: ${getScreenPreset().label}</span></button>
+          <button type="button" class="mt-btn" data-action="cycle-screen-quality" aria-label="ความชัดแชร์หน้าจอ"><span>ความชัดจอ: ${getScreenPreset().label}</span></button>
           <button type="button" class="mt-btn saver" data-action="toggle-data-saver" aria-pressed="${saver ? 'true' : 'false'}" aria-label="โหมดประหยัดข้อมูล">${ICONS.saver} <span>ประหยัดข้อมูล</span></button>
           <button type="button" class="mt-btn" data-action="focus-text-chat">กลับไปหน้าแชท</button>
           <button type="button" class="mt-btn leave" data-action="voice-leave" data-id="${escapeHtml(channel.id)}">${ICONS.logout} <span>ออกจากห้อง</span></button>
@@ -235,7 +233,7 @@ export async function updateMeetingControl(kind, refreshUi) {
   if (kind === 'screen-quality') {
     const preset = cycleScreenPreset();
     if (rtcMod) await rtcMod.updateScreenQuality();
-    toast(`ความละเอียดแชร์หน้าจอ: ${preset.label}`, 'ok');
+    toast(`ความชัดแชร์หน้าจอ: ${preset.label}`, 'ok');
     refreshUi();
     return;
   }
@@ -250,7 +248,7 @@ export async function updateMeetingControl(kind, refreshUi) {
   } else if (kind === 'data-saver') {
     state.meetingDataSaver = !state.meetingDataSaver;
     if (state.joinedVoiceChannelId) await rtc.syncLocalMediaSettings();
-    toast(state.meetingDataSaver ? 'เปิดโหมดประหยัดข้อมูล (~16 kbps)' : 'เปลี่ยนเป็นโหมดเสียงคมชัด (~48 kbps)', 'ok');
+    toast(state.meetingDataSaver ? 'เปิดโหมดประหยัดเน็ตแล้ว' : 'เปลี่ยนเป็นโหมดเสียงคมชัดแล้ว', 'ok');
     refreshUi();
   } else if (state.joinedVoiceChannelId) {
     await rtc.syncLocalMediaSettings();

@@ -134,9 +134,26 @@ export const escapeHtml = (value) =>
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
   }[c]));
 
+export const safeAvatarUrl = (raw) => {
+  const s = String(raw || '').trim();
+  if (
+    s.startsWith('data:image/png;base64,') ||
+    s.startsWith('data:image/jpeg;base64,') ||
+    s.startsWith('data:image/webp;base64,') ||
+    s.startsWith('https://')
+  ) {
+    return /[<"'\x00-\x1F\x7F]/.test(s) ? '' : s;
+  }
+  return '';
+};
 export const initials = (name) => String(name || '?').trim().slice(0, 2).toUpperCase();
-export const avatar = (user, size = '') =>
-  `<span class="avatar ${size}" style="background:${safeColor(user.color)}">${escapeHtml(initials(user.display_name))}</span>`;
+export const avatar = (user, size = '') => {
+  const img = safeAvatarUrl(user?.avatar_url);
+  if (img) {
+    return `<span class="avatar ${size}" style="background:${safeColor(user?.color)}"><img src="${escapeHtml(img)}" alt="${escapeHtml(user?.display_name || '')}" loading="lazy" /></span>`;
+  }
+  return `<span class="avatar ${size}" style="background:${safeColor(user?.color)}">${escapeHtml(initials(user?.display_name))}</span>`;
+};
 
 export const currentServer = () => state.servers.find((s) => s.id === state.currentServerId);
 export const currentChannel = () => currentServer()?.channels.find((c) => c.id === state.currentChannelId);

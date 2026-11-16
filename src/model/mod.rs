@@ -100,6 +100,8 @@ pub struct User {
     pub username: String,
     pub display_name: String,
     pub color: String,
+    #[serde(default)]
+    pub avatar_url: Option<String>,
     pub token: String,
     pub bot: bool,
     pub created_at: String,
@@ -119,6 +121,7 @@ impl User {
             username: self.username.clone(),
             display_name: self.display_name.clone(),
             color: self.color.clone(),
+            avatar_url: self.avatar_url.clone(),
             bot: self.bot,
         }
     }
@@ -131,6 +134,8 @@ pub struct PublicUser {
     pub username: String,
     pub display_name: String,
     pub color: String,
+    #[serde(default)]
+    pub avatar_url: Option<String>,
     pub bot: bool,
 }
 

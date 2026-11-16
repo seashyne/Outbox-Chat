@@ -100,4 +100,39 @@ describe('Tier 1: User Profile & Status Menu Actions (Requirement R1)', () => {
       ws.close();
     }
   });
+
+  it('1.11: uploads, validates, broadcasts, and clears real profile picture (avatar_url)', async (t) => {
+    if (checkSkip(t, serverOnline)) return;
+
+    const user = randomUsername('prof_pic');
+    const pass = randomPassword(12);
+    const reg = await client.register(user, pass);
+    assert.equal(reg.status, 200);
+    const token = reg.data.token;
+
+    const ws = await connectWs(token, { baseUrl: TARGET_URL });
+    try {
+      await ws.waitForMessage((m) => m.type === 'ready');
+
+      const badRes = await client.patchMe({ avatar_url: 'javascript:alert(1)' }, token);
+      assert.equal(badRes.status, 400);
+
+      const samplePng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aF9sAAAAASUVORK5CYII=';
+      const setRes = await client.patchMe({ avatar_url: samplePng }, token);
+      assert.equal(setRes.status, 200);
+      assert.equal(setRes.data.user.avatar_url, samplePng);
+
+      const wsEv = await ws.waitForMessage((m) => m.type === 'user_update' && m.user?.id === reg.data.user.id);
+      assert.equal(wsEv.user.avatar_url, samplePng);
+
+      const bootRes = await client.bootstrap(token);
+      assert.equal(bootRes.data.me.avatar_url, samplePng);
+
+      const clearRes = await client.patchMe({ avatar_url: '' }, token);
+      assert.equal(clearRes.status, 200);
+      assert.equal(clearRes.data.user.avatar_url, null);
+    } finally {
+      ws.close();
+    }
+  });
 });

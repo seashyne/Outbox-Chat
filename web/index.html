@@ -137,6 +137,11 @@
               <b id="spDisplayName">ชื่อที่แสดง</b>
               <span id="spUsername">@username</span>
             </div>
+            <div class="sp-avatar-actions">
+              <input id="avatarFileInput" type="file" accept="image/png,image/jpeg,image/webp" hidden />
+              <button type="button" class="ghost-btn sp-upload-btn" id="uploadAvatarBtn">เปลี่ยนรูป</button>
+              <button type="button" class="ghost-btn sp-clear-btn" id="clearAvatarBtn" hidden>ใช้ตัวอักษรย่อ</button>
+            </div>
           </div>
         </div>
 
@@ -203,21 +208,21 @@
         </div>
         <div class="palette-controls">
           <div class="palette-field">
-            <span>สีหลัก (Brand)</span>
+            <span>สีหลัก</span>
             <div class="palette-inputs">
               <input type="color" id="customBrandPicker" value="#5865f2" aria-label="สีหลัก" />
               <input type="text" id="customBrandHex" maxlength="7" value="#5865f2" aria-label="รหัสสีหลัก" />
             </div>
           </div>
           <div class="palette-field">
-            <span>สีแถบข้าง (Sidebar)</span>
+            <span>สีแถบด้านข้าง</span>
             <div class="palette-inputs">
               <input type="color" id="customSidebarPicker" value="#2b2d31" aria-label="สีแถบข้าง" />
               <input type="text" id="customSidebarHex" maxlength="7" value="#2b2d31" aria-label="รหัสสีแถบข้าง" />
             </div>
           </div>
           <div class="palette-field">
-            <span>สีพื้นหลังแชท (Chat)</span>
+            <span>สีพื้นหลังแชท</span>
             <div class="palette-inputs">
               <input type="color" id="customChatPicker" value="#313338" aria-label="สีพื้นหลังแชท" />
               <input type="text" id="customChatHex" maxlength="7" value="#313338" aria-label="รหัสสีพื้นหลังแชท" />

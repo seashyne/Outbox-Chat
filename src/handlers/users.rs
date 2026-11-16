@@ -120,12 +120,35 @@ pub async fn update_settings(
     })))
 }
 
-/// Updates the authenticated user's display name or avatar color and broadcasts `user_update`.
+/// Validates safe profile image data URLs (PNG/JPEG/WebP up to 64 KB) or `https://` URLs.
+fn parse_avatar_url(raw: &str) -> ApiResult<Option<String>> {
+    let s = raw.trim();
+    if s.is_empty() {
+        return Ok(None);
+    }
+    if s.len() > 65_536 || s.chars().any(|c| c.is_control() || matches!(c, '<' | '"' | '\'')) {
+        return Err(ApiError::BadRequest("invalid avatar image format or size".into()));
+    }
+    let valid_prefix = s.starts_with("data:image/png;base64,")
+        || s.starts_with("data:image/jpeg;base64,")
+        || s.starts_with("data:image/webp;base64,")
+        || s.starts_with("https://");
+    if !valid_prefix {
+        return Err(ApiError::BadRequest("invalid avatar image format or size".into()));
+    }
+    Ok(Some(s.to_string()))
+}
+
+/// Updates the authenticated user's display name, avatar color, or picture and broadcasts `user_update`.
 pub async fn update_profile(
     State(state): State<Arc<AppState>>,
     Auth(user): Auth,
     Json(body): Json<UpdateProfileRequest>,
 ) -> ApiResult<Json<serde_json::Value>> {
+    let avatar_patch = match body.avatar_url.as_deref() {
+        Some(raw) => Some(parse_avatar_url(raw)?),
+        None => None,
+    };
     let public = {
         let mut store = state.store.write().map_err(|_| ApiError::Internal)?;
         let stored_user = store
@@ -145,6 +168,9 @@ pub async fn update_profile(
                 )));
             }
             stored_user.color = color.to_string();
+        }
+        if let Some(next_avatar) = avatar_patch {
+            stored_user.avatar_url = next_avatar;
         }
         stored_user.public()
     };

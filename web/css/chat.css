@@ -49,9 +49,10 @@
 .msg .content .mention { background: color-mix(in srgb, var(--brand) 22%, transparent); color: var(--text); font-weight: 600; border-radius: 4px; padding: 0 4px; }
 
 .avatar {
-  width: 38px; height: 38px; flex: 0 0 38px; border-radius: 50%;
+  width: 38px; height: 38px; flex: 0 0 38px; border-radius: 50%; overflow: hidden;
   display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 14px; user-select: none;
 }
+.avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .avatar.sm { width: 30px; height: 30px; flex: 0 0 30px; font-size: 12px; }
 .avatar.xs { width: 20px; height: 20px; flex: 0 0 20px; font-size: 9px; }
 .avatar-wrap { position: relative; flex: 0 0 auto; display: inline-flex; }

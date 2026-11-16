@@ -9,11 +9,11 @@ let vadTimer = null;
 let audioCtx = null;
 let analyser = null;
 
-/** Minimum 480p@30fps up to Full HD 1080p@60fps screen share presets. */
+/** Screen share quality presets (480p@30 up to Full HD 1080p@60 underneath, clean Thai labels). */
 export const SCREEN_PRESETS = {
-  sd: { key: 'sd', label: '480p · 30fps', width: 854, height: 480, fps: 30, kbps: 800, hint: 'detail' },
-  hd: { key: 'hd', label: '720p · 30fps', width: 1280, height: 720, fps: 30, kbps: 1800, hint: 'detail' },
-  fhd: { key: 'fhd', label: 'Full HD · 60fps', width: 1920, height: 1080, fps: 60, kbps: 4500, hint: 'motion' },
+  sd: { key: 'sd', label: 'ประหยัดเน็ต', width: 854, height: 480, fps: 30, kbps: 800, hint: 'detail' },
+  hd: { key: 'hd', label: 'มาตรฐาน', width: 1280, height: 720, fps: 30, kbps: 1800, hint: 'detail' },
+  fhd: { key: 'fhd', label: 'คมชัดสูงสุด', width: 1920, height: 1080, fps: 60, kbps: 4500, hint: 'motion' },
 };
 
 const PRESET_ORDER = ['sd', 'hd', 'fhd'];

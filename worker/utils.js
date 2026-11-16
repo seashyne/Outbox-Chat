@@ -43,6 +43,7 @@ export function publicUser(user) {
     username: user.username,
     display_name: user.display_name,
     color: user.color,
+    avatar_url: user.avatar_url || null,
     bot: Boolean(user.bot),
   };
 }

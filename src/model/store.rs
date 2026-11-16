@@ -137,6 +137,7 @@ impl Store {
             username: "outbox-bot".into(),
             display_name: "Outbox Bot".into(),
             color: "#5865f2".into(),
+            avatar_url: None,
             token: new_token(),
             bot: true,
             created_at: now(),
