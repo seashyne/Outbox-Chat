@@ -110,6 +110,7 @@ async fn test_channel_delete_and_server_leave() {
         Json(CreateServerRequest {
             name: "Test Server".into(),
             icon: Some("TS".into()),
+            ..Default::default()
         }),
     )
     .await

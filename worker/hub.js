@@ -6,6 +6,7 @@
 import { DurableObject } from "cloudflare:workers";
 import { handleWsDisconnect, handleWsMessage, routeHubRequest } from "./router.js";
 import { seededStore } from "./seed.js";
+import { defaultRolesConfig, normalizeServerFields } from "./server_templates.js";
 import {
   HttpError,
   cmp,
@@ -44,6 +45,9 @@ export class OutboxHub extends DurableObject {
             user.settings = defaultSettings();
             updated = true;
           }
+        }
+        for (const srv of Object.values(this.store.servers || {})) {
+          if (normalizeServerFields(srv)) updated = true;
         }
         if (updated) this.persistStore();
       } else {
@@ -110,7 +114,8 @@ export class OutboxHub extends DurableObject {
   }
 
   serverView(userId, server) {
-    const members = Object.keys(this.store.members[server.id] || {})
+    const memberRolesMap = this.store.members[server.id] || {};
+    const members = Object.keys(memberRolesMap)
       .map((id) => this.store.users[id])
       .filter(Boolean)
       .map(publicUser)
@@ -120,11 +125,15 @@ export class OutboxHub extends DurableObject {
       id: server.id,
       name: server.name,
       icon: server.icon,
+      description: server.description || "",
+      accent_color: server.accent_color || "#5865f2",
+      roles_config: server.roles_config || defaultRolesConfig(),
       owner_id: server.owner_id,
       created_at: server.created_at,
       role: this.role(server.id, userId) || "member",
       channels: this.sortedChannels(server.id),
       members,
+      member_roles: { ...memberRolesMap },
     };
   }
 

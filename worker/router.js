@@ -18,6 +18,8 @@ import {
   handleJoinServer,
   handleLeaveServer,
   handleListServers,
+  handleUpdateMemberRole,
+  handleUpdateServer,
 } from "./handlers_servers.js";
 import {
   handleDeleteMessage,
@@ -59,6 +61,17 @@ export async function routeHubRequest(hub, request) {
     if (method === "POST" && path === "/api/servers") return await handleCreateServer(hub, request);
 
     let m;
+    if (method === "PATCH" && (m = path.match(/^\/api\/servers\/([^/]+)$/))) {
+      return await handleUpdateServer(hub, request, decodeURIComponent(m[1]));
+    }
+    if (method === "PATCH" && (m = path.match(/^\/api\/servers\/([^/]+)\/members\/([^/]+)\/role$/))) {
+      return await handleUpdateMemberRole(
+        hub,
+        request,
+        decodeURIComponent(m[1]),
+        decodeURIComponent(m[2])
+      );
+    }
     if (method === "POST" && (m = path.match(/^\/api\/servers\/([^/]+)\/channels$/))) {
       return await handleCreateChannel(hub, request, decodeURIComponent(m[1]));
     }

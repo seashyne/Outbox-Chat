@@ -21,11 +21,20 @@ pub async fn create_channel(
 
     let channel = {
         let mut store = state.store.write().map_err(|_| ApiError::Internal)?;
-        store
+        let server = store
             .servers
             .get(&server_id)
+            .cloned()
             .ok_or(ApiError::NotFound("server"))?;
         require_member(&store, &server_id, &user.id)?;
+        let role = store
+            .role(&server_id, &user.id)
+            .unwrap_or(crate::model::Role::Member);
+        if !role.can_manage() && !server.roles_config.allow_member_create_channel {
+            return Err(ApiError::Forbidden(
+                "only server owners and admins can create channels",
+            ));
+        }
         let position = store
             .channels
             .values()

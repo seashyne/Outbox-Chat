@@ -49,7 +49,9 @@ export function updateJumpButton() {
 export function autoGrow() {
   const input = $('messageInput');
   input.style.height = 'auto';
-  input.style.height = `${Math.min(input.scrollHeight, 160)}px`;
+  if (input.scrollHeight > 0) {
+    input.style.height = `${Math.max(30, Math.min(input.scrollHeight, 160))}px`;
+  }
   $('sendBtn').disabled = !input.value.trim();
   updateCharCount();
 }

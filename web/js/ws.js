@@ -103,6 +103,30 @@ export function handleEvent(event) {
       }
       break;
     }
+    case 'server_update': {
+      const srv = event.server;
+      const target = srv && state.servers.find((s) => s.id === srv.id);
+      if (target) {
+        Object.assign(target, {
+          name: srv.name,
+          icon: srv.icon,
+          description: srv.description || '',
+          accent_color: srv.accent_color || '#5865f2',
+          roles_config: srv.roles_config || target.roles_config,
+        });
+        renderRail(); renderSidebar(); renderHeader(); renderMembers();
+      }
+      break;
+    }
+    case 'member_role_update': {
+      const target = state.servers.find((s) => s.id === event.server_id);
+      if (target) {
+        target.member_roles = { ...(target.member_roles || {}), [event.user_id]: event.role };
+        if (state.me && state.me.id === event.user_id) target.role = event.role;
+        renderSidebar(); renderMembers();
+      }
+      break;
+    }
     case 'member_join': {
       const server = state.servers.find((s) => s.id === event.server_id);
       if (server && !server.members.some((m) => m.id === event.user.id)) {

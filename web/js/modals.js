@@ -6,51 +6,78 @@
 import { loadMessages, renderAll, selectChannel, selectServer } from './actions.js';
 import { api, handleError, toast } from './api.js';
 import { renderHeader, renderRail, renderSidebar } from './render_shell.js';
-import { $, currentServer, escapeHtml, state } from './state.js';
+import { $, currentServer, escapeHtml, setModalInert, state } from './state.js';
 
 let modalHandler = null;
+let lastModalFocus = null;
 
-export function openModal({ title, desc, html, submitText = 'สร้าง', hideSubmit = false, onSubmit }) {
+/** Dismisses a backdrop only when both press and release happen on the backdrop itself. */
+export function bindBackdropDismiss(backdrop, onDismiss) {
+  let pressedBackdrop = false;
+  backdrop?.addEventListener('pointerdown', (e) => { pressedBackdrop = e.target === backdrop; });
+  backdrop?.addEventListener('pointerup', (e) => {
+    if (pressedBackdrop && e.target === backdrop) onDismiss();
+    pressedBackdrop = false;
+  });
+}
+
+export function openModal({ title, desc, html, submitText = 'สร้าง', hideSubmit = false, wide = false, onSubmit }) {
+  lastModalFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   $('modalTitle').textContent = title;
   $('modalDesc').textContent = desc || '';
   $('modalFields').innerHTML = html || '';
   $('modalError').textContent = '';
   $('modalSubmit').textContent = submitText;
   $('modalSubmit').hidden = hideSubmit;
+  $('modalCard')?.classList.toggle('modal-wide', Boolean(wide));
   modalHandler = onSubmit || null;
+  setModalInert(true);
   $('modalBackdrop').hidden = false;
-  const firstInput = $('modalFields').querySelector('input, select');
-  if (firstInput) setTimeout(() => firstInput.focus(), 30);
+  const target = $('modalFields').querySelector('input, select') || (hideSubmit ? $('modalCancel') : $('modalSubmit'));
+  if (target) setTimeout(() => target.focus(), 30);
 }
 
 export function closeModal() {
+  if ($('modalBackdrop').hidden) return;
   $('modalBackdrop').hidden = true;
+  $('modalCard')?.classList.remove('modal-wide');
   modalHandler = null;
+  setModalInert(false);
+  if (lastModalFocus?.isConnected) lastModalFocus.focus();
+  lastModalFocus = null;
 }
 
 export function getModalHandler() {
   return modalHandler;
 }
 
-const field = (name, label, placeholder, extra = '') =>
-  `<label for="f_${name}">${label}</label><input id="f_${name}" name="${name}" placeholder="${escapeHtml(placeholder)}" ${extra} />`;
-
-export function openCreateServer() {
-  openModal({
-    title: 'สร้างเซิร์ฟเวอร์',
-    desc: 'ตั้งชื่อพื้นที่ของคุณ ระบบจะสร้างช่อง #general ให้โดยอัตโนมัติ',
-    html: field('name', 'ชื่อเซิร์ฟเวอร์', 'เช่น ทีมการตลาด') + field('icon', 'ตัวย่อเซิร์ฟเวอร์', 'HQ'),
-    onSubmit: async () => {
-      const name = $('f_name').value.trim();
-      if (!name) throw new Error('กรุณาใส่ชื่อเซิร์ฟเวอร์');
-      const icon = $('f_icon').value.trim();
-      const server = await api('/servers', { method: 'POST', body: JSON.stringify({ name, icon: icon || undefined }) });
-      state.servers.push(server);
-      await selectServer(server.id);
-      toast(`สร้างเซิร์ฟเวอร์ "${server.name}" แล้ว`, 'ok');
-    },
+/** Binds modal submit, cancel, directory actions, and backdrop dismissal. */
+export function bindModalEvents(onCreateServer) {
+  $('modalFields').addEventListener('click', (e) => {
+    const join = e.target.closest('[data-join]');
+    if (join) joinFromDirectory(join.dataset.join);
+    if (e.target.id === 'directoryCreate') { closeModal(); onCreateServer?.(); }
+  });
+  $('modalCancel').addEventListener('click', closeModal);
+  bindBackdropDismiss($('modalBackdrop'), closeModal);
+  $('modalSubmit').addEventListener('click', async () => {
+    if (!modalHandler) return;
+    const button = $('modalSubmit');
+    button.disabled = true;
+    $('modalError').textContent = '';
+    try {
+      await modalHandler();
+      closeModal();
+    } catch (error) {
+      $('modalError').textContent = error.message || 'ทำรายการไม่สำเร็จ';
+    } finally {
+      button.disabled = false;
+    }
   });
 }
+
+const field = (name, label, placeholder, extra = '') =>
+  `<label for="f_${name}">${label}</label><input id="f_${name}" name="${name}" placeholder="${escapeHtml(placeholder)}" ${extra} />`;
 
 export function openCreateChannel(kind = 'text') {
   if (!currentServer()) { toast('เลือกเซิร์ฟเวอร์ก่อน', 'err'); return; }
@@ -85,11 +112,11 @@ export async function openDirectory() {
     const servers = await api('/servers');
     const rows = servers.map((s) => `
       <div class="member" style="justify-content:space-between">
-        <span style="display:flex;align-items:center;gap:10px">
-          <span class="avatar sm" style="background:var(--brand)">${escapeHtml(s.icon)}</span>
-          <span><b>${escapeHtml(s.name)}</b><br /><small style="color:var(--muted)">สมาชิก ${s.member_count} คน</small></span>
+        <span style="display:flex;align-items:center;gap:10px;min-width:0">
+          <span class="avatar sm" style="background:${escapeHtml(s.accent_color || 'var(--brand)')}">${escapeHtml(s.icon)}</span>
+          <span style="min-width:0"><b>${escapeHtml(s.name)}</b><br /><small style="color:var(--muted)">สมาชิก ${s.member_count} คน${s.description ? ` · ${escapeHtml(s.description)}` : ''}</small></span>
         </span>
-        ${s.joined ? '<span style="color:var(--green);font-size:12px">[เข้าร่วมแล้ว]</span>' : `<button class="primary-btn" style="width:auto;margin:0;padding:6px 12px;font-size:12px" data-join="${escapeHtml(s.id)}">เข้าร่วม</button>`}
+        ${s.joined ? '<span style="color:var(--green);font-size:12px;flex:0 0 auto">[เข้าร่วมแล้ว]</span>' : `<button class="primary-btn" style="width:auto;min-height:32px;margin:0;padding:6px 12px;font-size:12px;flex:0 0 auto" data-join="${escapeHtml(s.id)}">เข้าร่วม</button>`}
       </div>`).join('');
     openModal({
       title: 'ค้นหาเซิร์ฟเวอร์',

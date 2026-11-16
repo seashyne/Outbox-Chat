@@ -132,6 +132,64 @@ pub struct PublicUser {
     pub bot: bool,
 }
 
+/// Configurable display labels, badge colors, and member permissions for server roles.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ServerRolesConfig {
+    #[serde(default = "default_owner_label")]
+    pub owner_label: String,
+    #[serde(default = "default_admin_label")]
+    pub admin_label: String,
+    #[serde(default = "default_member_label")]
+    pub member_label: String,
+    #[serde(default = "default_admin_color")]
+    pub admin_color: String,
+    #[serde(default = "default_member_color")]
+    pub member_color: String,
+    #[serde(default = "default_true")]
+    pub allow_member_create_channel: bool,
+}
+
+fn default_owner_label() -> String {
+    "เจ้าของเซิร์ฟเวอร์".to_string()
+}
+
+fn default_admin_label() -> String {
+    "ผู้ดูแลระบบ".to_string()
+}
+
+fn default_member_label() -> String {
+    "สมาชิก".to_string()
+}
+
+fn default_admin_color() -> String {
+    "#f59e0b".to_string()
+}
+
+fn default_member_color() -> String {
+    "#94a3b8".to_string()
+}
+
+fn default_accent_color() -> String {
+    "#5865f2".to_string()
+}
+
+fn default_true() -> bool {
+    true
+}
+
+impl Default for ServerRolesConfig {
+    fn default() -> Self {
+        Self {
+            owner_label: default_owner_label(),
+            admin_label: default_admin_label(),
+            member_label: default_member_label(),
+            admin_color: default_admin_color(),
+            member_color: default_member_color(),
+            allow_member_create_channel: true,
+        }
+    }
+}
+
 /// Guild / workspace container holding channels and members.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Server {
@@ -139,6 +197,12 @@ pub struct Server {
     pub name: String,
     /// Clean short text initials used as the server rail badge.
     pub icon: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default = "default_accent_color")]
+    pub accent_color: String,
+    #[serde(default)]
+    pub roles_config: ServerRolesConfig,
     pub owner_id: Id,
     pub created_at: String,
 }

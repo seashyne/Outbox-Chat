@@ -49,6 +49,8 @@ export const ICONS = {
   check: '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>',
   caret: '<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>',
   close: '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>',
+  eye: '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>',
+  eyeOff: '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46A11.804 11.804 0 0 0 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"/></svg>',
 };
 
 /** Validates and normalizes hex color strings; returns fallback on invalid input. */
@@ -186,6 +188,30 @@ export function formatContent(raw, query = '') {
   return formatted;
 }
 
+/** Computes WCAG relative luminance (0..1) from a valid hex color. */
+export function hexLuminance(hex) {
+  const full = normalizeHex6(hex);
+  const channels = [1, 3, 5].map((i) => {
+    const v = parseInt(full.slice(i, i + 2), 16) / 255;
+    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+}
+
+/** Computes WCAG contrast ratio (1..21) between two hex colors. */
+export function contrastRatio(hexA, hexB) {
+  const l1 = hexLuminance(hexA);
+  const l2 = hexLuminance(hexB);
+  const [bright, dark] = l1 >= l2 ? [l1, l2] : [l2, l1];
+  return (bright + 0.05) / (dark + 0.05);
+}
+
+/** Manages shell inertness and focus restoration when custom modal overlays open/close. */
+export function setModalInert(active) {
+  const shell = $('shell');
+  if (shell) shell.inert = active;
+}
+
 /** Applies a preset or custom color palette directly to CSS custom properties in real time. */
 export function applyTheme(theme, customColors = state.settings.custom_colors) {
   const validTheme = VALID_THEMES.includes(theme) ? theme : 'dark';
@@ -202,21 +228,31 @@ export function applyTheme(theme, customColors = state.settings.custom_colors) {
   const root = document.documentElement;
   root.dataset.theme = validTheme;
   const customProps = [
-    '--brand', '--brand-hover', '--sidebar', '--members',
-    '--rail', '--chat', '--header', '--input', '--hover', '--active', '--elevated',
+    '--brand', '--brand-hover', '--sidebar', '--members', '--rail', '--chat', '--header',
+    '--input', '--hover', '--active', '--elevated', '--text', '--muted', '--faint',
+    '--border', '--focus-ring', '--scrollbar-thumb', 'color-scheme',
   ];
   if (validTheme === 'custom') {
+    const lightChat = hexLuminance(colors.chat) > 0.36;
+    const mixTarget = lightChat ? '#000' : '#fff';
+    root.style.setProperty('color-scheme', lightChat ? 'light' : 'dark');
     root.style.setProperty('--brand', colors.brand);
-    root.style.setProperty('--brand-hover', colors.brand);
+    root.style.setProperty('--brand-hover', `color-mix(in oklab, ${colors.brand} 85%, ${lightChat ? '#000' : '#fff'})`);
     root.style.setProperty('--sidebar', colors.sidebar);
     root.style.setProperty('--members', colors.sidebar);
-    root.style.setProperty('--rail', `color-mix(in srgb, ${colors.sidebar} 75%, #000)`);
-    root.style.setProperty('--elevated', `color-mix(in srgb, ${colors.sidebar} 65%, #000)`);
+    root.style.setProperty('--rail', `color-mix(in srgb, ${colors.sidebar} 78%, #000)`);
+    root.style.setProperty('--elevated', lightChat ? '#ffffff' : `color-mix(in srgb, ${colors.sidebar} 70%, #000)`);
     root.style.setProperty('--chat', colors.chat);
     root.style.setProperty('--header', colors.chat);
-    root.style.setProperty('--input', `color-mix(in srgb, ${colors.chat} 85%, #fff)`);
-    root.style.setProperty('--hover', `color-mix(in srgb, ${colors.chat} 90%, #fff)`);
-    root.style.setProperty('--active', `color-mix(in srgb, ${colors.chat} 82%, #fff)`);
+    root.style.setProperty('--input', `color-mix(in srgb, ${colors.chat} 90%, ${mixTarget})`);
+    root.style.setProperty('--hover', `color-mix(in srgb, ${colors.chat} 92%, ${mixTarget})`);
+    root.style.setProperty('--active', `color-mix(in srgb, ${colors.chat} 84%, ${mixTarget})`);
+    root.style.setProperty('--text', lightChat ? '#111827' : '#f3f4f6');
+    root.style.setProperty('--muted', lightChat ? '#4b5563' : '#b0b6c2');
+    root.style.setProperty('--faint', lightChat ? '#6b7280' : '#8c93a0');
+    root.style.setProperty('--border', lightChat ? 'rgba(17, 24, 39, .1)' : 'rgba(255, 255, 255, .1)');
+    root.style.setProperty('--focus-ring', lightChat ? '#111827' : '#f3f4f6');
+    root.style.setProperty('--scrollbar-thumb', lightChat ? 'rgba(75, 85, 99, .3)' : 'rgba(160, 168, 184, .34)');
   } else {
     customProps.forEach((prop) => root.style.removeProperty(prop));
   }

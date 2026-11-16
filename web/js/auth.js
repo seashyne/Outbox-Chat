@@ -8,10 +8,26 @@ import { api, handleError } from './api.js';
 import { closeOverlays } from './menus.js';
 import { renderRail } from './render_shell.js';
 import { closeSettingsModal } from './settings.js';
-import { $, applyTheme, currentChannel, state } from './state.js';
+import { $, ICONS, applyTheme, currentChannel, state } from './state.js';
 import { connectWs } from './ws.js';
 
 let authMode = 'login';
+
+function setPasswordVisible(visible) {
+  const pwd = $('passwordInput');
+  const toggle = $('togglePasswordBtn');
+  if (!pwd || !toggle) return;
+  pwd.type = visible ? 'text' : 'password';
+  toggle.setAttribute('aria-pressed', visible ? 'true' : 'false');
+  toggle.setAttribute('aria-label', visible ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน');
+  toggle.innerHTML = visible ? ICONS.eyeOff : ICONS.eye;
+}
+
+function clearAuthValidation() {
+  $('usernameInput')?.removeAttribute('aria-invalid');
+  $('passwordInput')?.removeAttribute('aria-invalid');
+  $('loginError').textContent = '';
+}
 
 export function setAuthMode(mode) {
   authMode = mode;
@@ -27,11 +43,41 @@ export function setAuthMode(mode) {
   const pwdInput = $('passwordInput');
   if (pwdInput) {
     pwdInput.autocomplete = isLogin ? 'current-password' : 'new-password';
-    pwdInput.placeholder = isLogin ? 'รหัสผ่าน' : 'รหัสผ่าน (อย่างน้อย 8 ตัวอักษร)';
+    pwdInput.placeholder = isLogin ? 'กรอกรหัสผ่าน' : 'สร้างรหัสผ่าน (อย่างน้อย 8 ตัวอักษร)';
   }
+  const hint = $('passwordHint');
+  if (hint) hint.textContent = isLogin ? '8-128 ตัวอักษร' : 'อย่างน้อย 8 ตัวอักษร';
   const button = $('loginBtn');
   if (button) button.textContent = isLogin ? 'เข้าสู่ระบบ' : 'สมัครสมาชิก';
-  $('loginError').textContent = '';
+  setPasswordVisible(false);
+  clearAuthValidation();
+}
+
+/** Binds auth tabs, password visibility toggle, and semantic form submission. */
+export function bindAuthEvents() {
+  const form = $('authForm');
+  form?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    doAuth();
+  });
+  $('tabLogin')?.addEventListener('click', () => setAuthMode('login'));
+  $('tabRegister')?.addEventListener('click', () => setAuthMode('register'));
+  [$('tabLogin'), $('tabRegister')].forEach((tab) => {
+    tab?.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        const next = tab.id === 'tabLogin' ? 'register' : 'login';
+        setAuthMode(next);
+        $(next === 'login' ? 'tabLogin' : 'tabRegister')?.focus();
+      }
+    });
+  });
+  $('togglePasswordBtn')?.addEventListener('click', () => {
+    const toggle = $('togglePasswordBtn');
+    const currentlyShown = toggle?.getAttribute('aria-pressed') === 'true';
+    setPasswordVisible(!currentlyShown);
+  });
+  $('usernameInput')?.addEventListener('input', () => $('usernameInput').removeAttribute('aria-invalid'));
+  $('passwordInput')?.addEventListener('input', () => $('passwordInput').removeAttribute('aria-invalid'));
 }
 
 export function logout(expired = false) {
@@ -77,39 +123,50 @@ export async function start() {
   const channel = currentChannel();
   $('messageInput').placeholder = channel ? `ส่งข้อความไปที่ #${channel.name}` : 'เลือกช่องก่อนส่งข้อความ';
   renderAll();
+  requestAnimationFrame(() => {
+    const input = $('messageInput');
+    if (input) { input.style.height = 'auto'; }
+  });
   await loadMessages();
   connectWs();
 }
 
 export async function doAuth() {
   const button = $('loginBtn');
-  const username = $('usernameInput').value.trim();
-  const password = $('passwordInput') ? $('passwordInput').value : '';
-  $('loginError').textContent = '';
+  const userEl = $('usernameInput');
+  const pwdEl = $('passwordInput');
+  const username = userEl.value.trim();
+  const password = pwdEl ? pwdEl.value : '';
+  clearAuthValidation();
 
   if (!username) {
+    userEl.setAttribute('aria-invalid', 'true');
     $('loginError').textContent = 'กรุณากรอกชื่อผู้ใช้';
-    $('usernameInput').focus();
+    userEl.focus();
     return;
   }
   if (username.length > 32) {
+    userEl.setAttribute('aria-invalid', 'true');
     $('loginError').textContent = 'ชื่อผู้ใช้ต้องไม่เกิน 32 ตัวอักษร';
-    $('usernameInput').focus();
+    userEl.focus();
     return;
   }
   if (!password) {
+    pwdEl?.setAttribute('aria-invalid', 'true');
     $('loginError').textContent = 'กรุณากรอกรหัสผ่าน';
-    $('passwordInput')?.focus();
+    pwdEl?.focus();
     return;
   }
   if (password.length < 8) {
+    pwdEl?.setAttribute('aria-invalid', 'true');
     $('loginError').textContent = 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร';
-    $('passwordInput')?.focus();
+    pwdEl?.focus();
     return;
   }
   if (password.length > 128) {
+    pwdEl?.setAttribute('aria-invalid', 'true');
     $('loginError').textContent = 'รหัสผ่านต้องไม่เกิน 128 ตัวอักษร';
-    $('passwordInput')?.focus();
+    pwdEl?.focus();
     return;
   }
 

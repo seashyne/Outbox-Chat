@@ -43,6 +43,11 @@ async fn main() -> std::io::Result<()> {
             "/servers",
             get(handlers::list_servers).post(handlers::create_server),
         )
+        .route("/servers/{id}", patch(handlers::update_server))
+        .route(
+            "/servers/{id}/members/{user_id}/role",
+            patch(handlers::update_member_role),
+        )
         .route("/servers/{id}/channels", post(handlers::create_channel))
         .route("/servers/{id}/join", post(handlers::join_server))
         .route("/servers/{id}/leave", post(handlers::leave_server))

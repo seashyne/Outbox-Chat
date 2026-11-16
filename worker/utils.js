@@ -150,6 +150,6 @@ export function eventServerId(event) {
   ) {
     return null;
   }
-  if (event.type === "server_create") return event.server.id;
+  if (event.type === "server_create" || event.type === "server_update") return event.server.id;
   return event.server_id || null;
 }

@@ -9,48 +9,52 @@ import {
   insertMention,
   selectChannel,
   selectServer,
-  sendMessage,
   setCloseOverlaysHook,
   setReply,
-  toggleReaction,
   toggleSearch,
 } from './js/actions.js';
 import { api, handleError, setUnauthorizedHandler, toast } from './js/api.js';
-import { doAuth, logout, setAuthMode, start, toggleTheme } from './js/auth.js';
+import { bindAuthEvents, logout, start, toggleTheme } from './js/auth.js';
+import { bindMessageEvents } from './js/composer.js';
 import {
   closeOverlays,
+  handleDropdownKeydown,
   openChannelInfo,
-  openComposerMenu,
-  openEmojiPicker,
   openProfile,
   openServerMenu,
   openStatusMenu,
-  pickEmoji,
 } from './js/menus.js';
 import {
+  bindModalEvents,
   closeModal,
-  getModalHandler,
-  joinFromDirectory,
   openConfirmDeleteChannel,
   openConfirmLeaveServer,
   openCreateChannel,
-  openCreateServer,
   openDirectory,
 } from './js/modals.js';
-import { autoGrow, renderMessages, scrollToBottom, updateJumpButton } from './js/render_chat.js';
+import { autoGrow } from './js/render_chat.js';
 import { renderHeader, renderRail, renderSidebar, renderUserPanel, renderVoiceBar, renderVoicePanel } from './js/render_shell.js';
+import { changeMemberRole, openCreateServer, openServerSettings } from './js/server_modal.js';
 import { bindSettingsEvents, closeSettingsModal, openSettingsModal, updateMyStatus } from './js/settings.js';
-import { $, applyTheme, currentChannel, currentServer, state } from './js/state.js';
+import { $, applyTheme, currentServer, state } from './js/state.js';
 
 setUnauthorizedHandler(logout);
 setCloseOverlaysHook(closeOverlays);
 applyTheme(state.settings.theme, state.settings.custom_colors);
+bindAuthEvents();
+bindMessageEvents();
+bindModalEvents(openCreateServer);
 
-$('loginBtn').addEventListener('click', doAuth);
-$('usernameInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') doAuth(); });
-$('passwordInput')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') doAuth(); });
-$('tabLogin')?.addEventListener('click', () => setAuthMode('login'));
-$('tabRegister')?.addEventListener('click', () => setAuthMode('register'));
+function setMobileSidebar(open) {
+  $('sidebar')?.classList.toggle('mobile-open', open);
+  const scrim = $('sidebarScrim');
+  if (scrim) {
+    scrim.hidden = !open;
+    scrim.classList.toggle('open', open);
+  }
+  const toggleBtn = $('chatHeader')?.querySelector('[data-action="toggle-sidebar"]');
+  toggleBtn?.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
 
 $('rail').addEventListener('click', (e) => {
   const btn = e.target.closest('[data-action]');
@@ -117,84 +121,6 @@ async function handleVoiceClick(e) {
 $('voicePanel').addEventListener('click', handleVoiceClick);
 $('voiceBar').addEventListener('click', handleVoiceClick);
 
-$('messageList').addEventListener('click', async (e) => {
-  const btn = e.target.closest('[data-action]');
-  if (!btn) return;
-  const action = btn.dataset.action;
-  const id = btn.dataset.id;
-  if (action === 'delete-message') {
-    try {
-      await api(`/messages/${encodeURIComponent(id)}`, { method: 'DELETE' });
-      state.messages = state.messages.filter((m) => m.id !== id);
-      renderMessages();
-    } catch (error) { handleError(error); }
-  } else if (action === 'reaction') toggleReaction(id, btn.dataset.emoji);
-  else if (action === 'quick-react') toggleReaction(id, '+1');
-  else if (action === 'react-more') openEmojiPicker(btn, { type: 'reaction', messageId: id });
-  else if (action === 'reply') setReply(id);
-  else if (action === 'copy-message') {
-    const targetMsg = state.messages.find((m) => m.id === id);
-    if (targetMsg) {
-      navigator.clipboard?.writeText(targetMsg.content)
-        .then(() => toast('คัดลอกข้อความแล้ว', 'ok'))
-        .catch(() => toast('คัดลอกไม่สำเร็จ', 'err'));
-    }
-  } else if (action === 'profile') openProfile(id, btn);
-  else if (action === 'clear-search') clearSearch();
-  else if (action === 'goto-message') {
-    const target = document.querySelector(`.msg[data-id="${id}"]`);
-    if (target) {
-      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      target.classList.add('flash');
-      setTimeout(() => target.classList.remove('flash'), 1400);
-    } else toast('ข้อความต้นฉบับอยู่นอกช่วงที่โหลดไว้');
-  }
-});
-
-$('messageInput').addEventListener('input', () => {
-  autoGrow();
-  const now = Date.now();
-  if (now - state.lastTypingSent > 1800 && state.ws && state.ws.readyState === 1 && currentChannel()) {
-    state.lastTypingSent = now;
-    state.ws.send(JSON.stringify({ type: 'typing', channel_id: state.currentChannelId }));
-  }
-});
-$('messageInput').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-});
-$('sendBtn').addEventListener('click', sendMessage);
-$('attachBtn').addEventListener('click', (e) => openComposerMenu(e.currentTarget));
-$('emojiPicker').addEventListener('click', (e) => {
-  const btn = e.target.closest('[data-emoji]');
-  if (btn) pickEmoji(btn.dataset.emoji);
-});
-$('replyBar').addEventListener('click', (e) => {
-  if (e.target.closest('[data-action="cancel-reply"]')) clearReply();
-});
-$('jumpBtn').addEventListener('click', () => { scrollToBottom(); $('jumpBtn').hidden = true; });
-$('messageScroll').addEventListener('scroll', updateJumpButton);
-
-$('modalFields').addEventListener('click', (e) => {
-  const join = e.target.closest('[data-join]');
-  if (join) joinFromDirectory(join.dataset.join);
-  if (e.target.id === 'directoryCreate') { closeModal(); openCreateServer(); }
-});
-$('modalCancel').addEventListener('click', closeModal);
-$('modalBackdrop').addEventListener('click', (e) => { if (e.target === $('modalBackdrop')) closeModal(); });
-$('modalSubmit').addEventListener('click', async () => {
-  const handler = getModalHandler();
-  if (!handler) return;
-  const button = $('modalSubmit');
-  button.disabled = true;
-  $('modalError').textContent = '';
-  try {
-    await handler();
-    closeModal();
-  } catch (error) {
-    $('modalError').textContent = error.message || 'ทำรายการไม่สำเร็จ';
-  } finally { button.disabled = false; }
-});
-
 $('chatHeader').addEventListener('click', (e) => {
   const btn = e.target.closest('[data-action]');
   if (!btn) return;
@@ -204,8 +130,12 @@ $('chatHeader').addEventListener('click', (e) => {
     state.membersVisible = !state.membersVisible;
     $('memberList').hidden = !state.membersVisible;
     renderHeader();
-  } else if (action === 'toggle-sidebar') $('sidebar').classList.toggle('mobile-open');
+  } else if (action === 'toggle-sidebar') setMobileSidebar(!$('sidebar').classList.contains('mobile-open'));
   else if (action === 'toggle-theme') toggleTheme();
+});
+$('sidebarScrim')?.addEventListener('click', () => setMobileSidebar(false));
+$('channelList').addEventListener('click', (e) => {
+  if (e.target.closest('[data-action="channel"]') && window.innerWidth <= 680) setMobileSidebar(false);
 });
 
 $('memberList').addEventListener('click', (e) => {
@@ -223,12 +153,14 @@ $('userPanel').addEventListener('click', (e) => {
   else if (action === 'toggle-mute' || action === 'toggle-deafen') handleVoiceClick(e);
 });
 
-$('overlay').addEventListener('click', closeOverlays);
+$('overlay').addEventListener('click', () => closeOverlays(false));
+$('dropdown').addEventListener('keydown', handleDropdownKeydown);
 $('dropdown').addEventListener('click', (e) => {
   const btn = e.target.closest('[data-action]');
   if (!btn) return;
   const action = btn.dataset.action;
   if (action === 'create-channel') { closeOverlays(); openCreateChannel('text'); }
+  else if (action === 'server-settings') { closeOverlays(); openServerSettings('general'); }
   else if (action === 'directory') { closeOverlays(); openDirectory(); }
   else if (action === 'copy-server') {
     const name = currentServer()?.name || '';
@@ -274,6 +206,12 @@ $('profilePopout').addEventListener('click', (e) => {
     if (last) setReply(last.id); else toast('ยังไม่มีข้อความจากคนนี้ในช่องนี้');
   } else if (action === 'open-settings-profile') { closeOverlays(); openSettingsModal('profile'); }
   else if (action === 'open-settings-appearance') { closeOverlays(); openSettingsModal('appearance'); }
+  else if (action === 'toggle-member-role' && currentServer()) {
+    const sid = currentServer().id;
+    const role = btn.dataset.role;
+    closeOverlays();
+    changeMemberRole(sid, id, role).catch(handleError);
+  }
 });
 
 bindSettingsEvents(logout);
@@ -282,7 +220,8 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     if (!$('settingsBackdrop').hidden) { closeSettingsModal(true); return; }
     if (!$('modalBackdrop').hidden) { closeModal(); return; }
-    if (state.popover) { closeOverlays(); return; }
+    if (state.popover) { closeOverlays(true); return; }
+    if ($('sidebar')?.classList.contains('mobile-open')) { setMobileSidebar(false); return; }
     if (state.replyTo) { clearReply(); return; }
     if (state.searchOpen) { clearSearch(); return; }
   }

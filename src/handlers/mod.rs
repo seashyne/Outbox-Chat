@@ -8,6 +8,7 @@ pub mod auth;
 mod auth_tests;
 pub mod channels;
 pub mod messages;
+pub mod server_templates;
 pub mod servers;
 #[cfg(test)]
 mod settings_tests;
@@ -17,7 +18,9 @@ pub mod voice;
 pub use auth::{bootstrap, login, logout, register};
 pub use channels::{create_channel, delete_channel};
 pub use messages::{delete_message, list_messages, post_message, toggle_reaction};
-pub use servers::{create_server, join_server, leave_server, list_servers};
+pub use servers::{
+    create_server, join_server, leave_server, list_servers, update_member_role, update_server,
+};
 pub use users::{get_settings, update_profile, update_settings};
 pub use voice::{voice_join, voice_leave};
 
@@ -113,27 +116,31 @@ pub(crate) fn sorted_channels(store: &Store, server_id: &str) -> Vec<Channel> {
 }
 
 pub(crate) fn server_view(store: &Store, user_id: &str, server: &Server) -> ServerView {
-    let mut members: Vec<PublicUser> = store
-        .members
-        .get(&server.id)
-        .map(|map| {
-            map.keys()
-                .filter_map(|id| store.users.get(id))
-                .map(User::public)
-                .collect()
-        })
-        .unwrap_or_default();
+    let mut members: Vec<PublicUser> = Vec::new();
+    let mut member_roles: std::collections::HashMap<String, Role> = std::collections::HashMap::new();
+    if let Some(map) = store.members.get(&server.id) {
+        for (id, role) in map {
+            if let Some(u) = store.users.get(id) {
+                members.push(u.public());
+                member_roles.insert(id.clone(), *role);
+            }
+        }
+    }
     members.sort_by(|a, b| a.display_name.cmp(&b.display_name));
 
     ServerView {
         id: server.id.clone(),
         name: server.name.clone(),
         icon: server.icon.clone(),
+        description: server.description.clone(),
+        accent_color: server.accent_color.clone(),
+        roles_config: server.roles_config.clone(),
         owner_id: server.owner_id.clone(),
         created_at: server.created_at.clone(),
         role: store.role(&server.id, user_id).unwrap_or(Role::Member),
         channels: sorted_channels(store, &server.id),
         members,
+        member_roles,
     }
 }
 

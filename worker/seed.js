@@ -3,6 +3,7 @@
  * Kept free of decorative emojis/emotes.
  */
 
+import { defaultRolesConfig } from "./server_templates.js";
 import { defaultSettings, newToken, nowIso } from "./utils.js";
 
 /** Builds a fresh seeded database object on first Durable Object initialization. */
@@ -25,6 +26,9 @@ export function seededStore() {
     id: "demo",
     name: "Outbox HQ",
     icon: "HQ",
+    description: "พื้นที่พูดคุยหลักสำหรับทีม Outbox",
+    accent_color: "#5865f2",
+    roles_config: defaultRolesConfig(),
     owner_id: bot.id,
     created_at: created,
   };

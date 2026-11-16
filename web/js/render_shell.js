@@ -20,24 +20,26 @@ import {
   userStatusKey,
 } from './state.js';
 import { renderMessages } from './render_chat.js';
+import { memberRoleFor, roleMeta } from './server_templates.js';
 
 export function renderRail() {
   const servers = state.servers.map((s) => {
     const unread = s.channels.reduce((total, c) => total + (state.unread.has(c.id) ? 1 : 0), 0);
+    const accent = s.accent_color ? `style="--srv-accent:${escapeHtml(s.accent_color)}"` : '';
     return `
     <button class="rail-btn ${s.id === state.currentServerId ? 'active' : ''} ${unread ? 'has-unread' : ''}"
-            data-action="server" data-id="${escapeHtml(s.id)}"
-            data-tooltip="${escapeHtml(s.name)}" aria-label="${escapeHtml(s.name)}">
+            data-action="server" data-id="${escapeHtml(s.id)}" ${accent}
+            title="${escapeHtml(s.name)}" data-tooltip="${escapeHtml(s.name)}" aria-label="${escapeHtml(s.name)}">
       <span class="rail-pill"></span>${escapeHtml(s.icon)}
       ${unread ? `<span class="rail-badge">${unread}</span>` : ''}
     </button>`;
   }).join('');
   $('rail').innerHTML = `
-    <button class="rail-btn home" data-action="directory" data-tooltip="ค้นหาเซิร์ฟเวอร์">${ICONS.home}</button>
+    <button class="rail-btn home" data-action="directory" title="ค้นหาเซิร์ฟเวอร์" data-tooltip="ค้นหาเซิร์ฟเวอร์" aria-label="ค้นหาเซิร์ฟเวอร์">${ICONS.home}</button>
     <div class="rail-divider"></div>
     ${servers}
-    <button class="rail-btn add" data-action="create-server" data-tooltip="สร้างเซิร์ฟเวอร์">+</button>
-    <button class="rail-btn theme" data-action="theme" data-tooltip="ปรับแต่งธีมและตั้งค่า">${ICONS.settings}</button>`;
+    <button class="rail-btn add" data-action="create-server" title="สร้างเซิร์ฟเวอร์" data-tooltip="สร้างเซิร์ฟเวอร์" aria-label="สร้างเซิร์ฟเวอร์">+</button>
+    <button class="rail-btn theme" data-action="theme" title="ปรับแต่งธีมและตั้งค่า" data-tooltip="ปรับแต่งธีมและตั้งค่า" aria-label="ปรับแต่งธีมและตั้งค่า">${ICONS.settings}</button>`;
 }
 
 export function renderVoicePanel() {
@@ -92,11 +94,12 @@ export function renderSidebar() {
     $('voiceBar').hidden = true;
     return;
   }
+  const canCreate = ['owner', 'admin'].includes(server.role) || server.roles_config?.allow_member_create_channel !== false;
   $('serverHeader').innerHTML = `
-    <button class="server-name" data-action="server-menu" title="เมนูเซิร์ฟเวอร์" aria-label="เมนูเซิร์ฟเวอร์">
+    <button class="server-name" data-action="server-menu" title="${escapeHtml(server.description || 'เมนูเซิร์ฟเวอร์')}" aria-label="เมนูเซิร์ฟเวอร์">
       ${escapeHtml(server.name)} <span class="caret">${ICONS.caret}</span>
     </button>
-    <button class="icon-btn" data-action="create-channel" title="เพิ่มช่อง" aria-label="เพิ่มช่อง">${ICONS.plus}</button>`;
+    ${canCreate ? `<button class="icon-btn" data-action="create-channel" title="เพิ่มช่อง" aria-label="เพิ่มช่อง">${ICONS.plus}</button>` : ''}`;
 
   const textChannels = server.channels.filter((c) => c.kind === 'text');
   const voiceChannels = server.channels.filter((c) => c.kind === 'voice');
@@ -131,7 +134,7 @@ export function renderSidebar() {
           <button class="group-toggle" data-action="toggle-group" data-group="${key}" title="${collapsed ? 'ขยาย' : 'ยุบ'}หมวดหมู่">
             <span class="caret ${collapsed ? 'closed' : ''}">${ICONS.caret}</span>${label}${collapsed && channels.length ? `<span class="group-count">${channels.length}</span>` : ''}
           </button>
-          <button data-action="create-channel" data-kind="${key}" title="เพิ่มช่อง" aria-label="เพิ่มช่อง">+</button>
+          ${canCreate ? `<button data-action="create-channel" data-kind="${key}" title="เพิ่มช่อง" aria-label="เพิ่มช่อง">+</button>` : ''}
         </div>
         ${collapsed ? '' : (channels.map(channelRow).join('') || '<div class="channel-empty">— ยังไม่มีช่อง —</div>')}
       </div>`;
@@ -161,8 +164,9 @@ export function renderUserPanel() {
 export function renderHeader() {
   const channel = currentChannel();
   if (!channel) { $('chatHeader').innerHTML = ''; return; }
+  const sidebarOpen = $('sidebar')?.classList.contains('mobile-open');
   $('chatHeader').innerHTML = `
-    <button class="icon-btn mobile-only" data-action="toggle-sidebar" title="รายการช่อง" aria-label="เปิดรายการช่อง">${ICONS.menu}</button>
+    <button class="icon-btn mobile-only" data-action="toggle-sidebar" title="รายการช่อง" aria-label="เปิดรายการช่อง" aria-controls="sidebar" aria-expanded="${sidebarOpen ? 'true' : 'false'}">${ICONS.menu}</button>
     <span class="big-hash">${channel.kind === 'text' ? '#' : ICONS.voice}</span>
     <span class="title">${escapeHtml(channel.name)}</span>
     <span class="topic">${escapeHtml(channel.topic || '')}</span>
@@ -191,14 +195,17 @@ export function renderMembers() {
     const on = isOnline(m.id);
     const isMe = state.me && m.id === state.me.id;
     const dot = isMe ? myStatusDot() : (on ? statusDotFor(userStatusKey(m.id)) : '');
+    const rKey = memberRoleFor(server, m.id);
+    const rMeta = roleMeta(server, rKey);
+    const showBadge = rKey === 'owner' || rKey === 'admin';
     return `
     <button class="member ${on ? 'online' : ''}" data-action="profile" data-id="${escapeHtml(m.id)}">
       <span class="avatar-wrap">${avatar(m, 'sm')}<span class="status-dot ${dot}"></span></span>
       <span class="who">
-        <span class="m-name" style="${m.id === server.owner_id ? 'color:var(--amber)' : ''}">${escapeHtml(m.display_name)}</span>
+        <span class="m-name" style="${showBadge ? `color:${rMeta.color}` : ''}">${escapeHtml(m.display_name)}</span>
         ${on ? `<span class="m-activity">${escapeHtml(activityText(m.id))}</span>` : ''}
       </span>
-      ${m.id === server.owner_id ? '<span class="member-role" title="เจ้าของเซิร์ฟเวอร์"></span>' : ''}
+      ${showBadge ? `<span class="member-role" style="background:${rMeta.color}" title="${escapeHtml(rMeta.label)}"></span>` : ''}
       ${m.bot ? '<span class="bot-tag">bot</span>' : ''}
       ${isMe ? '<span class="you">คุณ</span>' : ''}
     </button>`;

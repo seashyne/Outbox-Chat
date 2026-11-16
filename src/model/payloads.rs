@@ -1,6 +1,9 @@
 //! REST API request/response DTOs and WebSocket event definitions.
 
-use super::{Channel, ChannelKind, Id, MessageView, PublicUser, Role, Server, UserSettings};
+use super::{
+    Channel, ChannelKind, Id, MessageView, PublicUser, Role, Server, ServerRolesConfig,
+    UserSettings,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -28,11 +31,54 @@ pub struct LoginResponse {
     pub user: PublicUser,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Default, Clone)]
+pub struct ServerRolesConfigPatch {
+    #[serde(default)]
+    pub owner_label: Option<String>,
+    #[serde(default)]
+    pub admin_label: Option<String>,
+    #[serde(default)]
+    pub member_label: Option<String>,
+    #[serde(default)]
+    pub admin_color: Option<String>,
+    #[serde(default)]
+    pub member_color: Option<String>,
+    #[serde(default)]
+    pub allow_member_create_channel: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, Default)]
 pub struct CreateServerRequest {
     pub name: String,
     #[serde(default)]
     pub icon: Option<String>,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub template: Option<String>,
+    #[serde(default)]
+    pub accent_color: Option<String>,
+    #[serde(default)]
+    pub roles_config: Option<ServerRolesConfigPatch>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateServerRequest {
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub icon: Option<String>,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub accent_color: Option<String>,
+    #[serde(default)]
+    pub roles_config: Option<ServerRolesConfigPatch>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateMemberRoleRequest {
+    pub role: Role,
 }
 
 #[derive(Debug, Deserialize)]
@@ -102,11 +148,15 @@ pub struct ServerView {
     pub id: Id,
     pub name: String,
     pub icon: String,
+    pub description: String,
+    pub accent_color: String,
+    pub roles_config: ServerRolesConfig,
     pub owner_id: Id,
     pub created_at: String,
     pub role: Role,
     pub channels: Vec<Channel>,
     pub members: Vec<PublicUser>,
+    pub member_roles: HashMap<Id, Role>,
 }
 
 #[derive(Debug, Serialize)]
@@ -114,6 +164,8 @@ pub struct ServerSummary {
     pub id: Id,
     pub name: String,
     pub icon: String,
+    pub description: String,
+    pub accent_color: String,
     pub member_count: usize,
     pub joined: bool,
 }
@@ -171,6 +223,14 @@ pub enum Event {
     ServerCreate {
         server: Server,
     },
+    ServerUpdate {
+        server: Server,
+    },
+    MemberRoleUpdate {
+        server_id: Id,
+        user_id: Id,
+        role: Role,
+    },
     MemberJoin {
         server_id: Id,
         user: PublicUser,
@@ -212,9 +272,10 @@ impl Event {
             | Event::ChannelDelete { server_id, .. }
             | Event::MemberJoin { server_id, .. }
             | Event::MemberLeave { server_id, .. }
+            | Event::MemberRoleUpdate { server_id, .. }
             | Event::Typing { server_id, .. }
             | Event::VoiceState { server_id, .. } => Some(server_id),
-            Event::ServerCreate { server } => Some(&server.id),
+            Event::ServerCreate { server } | Event::ServerUpdate { server } => Some(&server.id),
             Event::Presence { .. }
             | Event::UserUpdate { .. }
             | Event::UserStatus { .. } => None,

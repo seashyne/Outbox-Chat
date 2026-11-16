@@ -5,7 +5,7 @@
 
 use super::{
     new_token, now, Channel, ChannelKind, Id, Message, MessageView, ReactionView, ReplyPreview,
-    Role, Server, User, UserSettings,
+    Role, Server, ServerRolesConfig, User, UserSettings,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -151,6 +151,9 @@ impl Store {
             id: "demo".into(),
             name: "Outbox HQ".into(),
             icon: "HQ".into(),
+            description: "พื้นที่พูดคุยหลักสำหรับทีม Outbox".into(),
+            accent_color: "#5865f2".into(),
+            roles_config: ServerRolesConfig::default(),
             owner_id: bot.id.clone(),
             created_at: now(),
         };
