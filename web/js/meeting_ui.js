@@ -95,7 +95,8 @@ export function renderMeetingStage(renderSidebarFn, renderUserFn) {
     const deafened = isMe ? state.deafened : Boolean(peer.deafened);
     const speaking = Boolean(peer.speaking && !muted && !deafened);
     const stream = isMe ? localStreamRef : remoteStreams.get(uid);
-    const hasVideo = Boolean(stream?.getVideoTracks().some((t) => t.enabled && t.readyState === 'live'));
+    const liveVideo = Boolean(stream?.getVideoTracks().some((t) => t.enabled && t.readyState === 'live' && !t.muted));
+    const hasVideo = isMe ? (Boolean(state.meetingVideo || state.meetingScreen) && liveVideo) : (peer.video !== false && liveVideo);
     const rMeta = roleMeta(server, memberRoleFor(server, uid));
     return `
       <div class="meeting-tile ${speaking ? 'speaking' : ''} ${hasVideo ? 'has-video' : ''}">
@@ -227,9 +228,14 @@ export async function handleMeetingWsEvent(event, refreshUi) {
 /** Triggers RTC control updates (`mute`, `deafen`, `data-saver`, `cam`, `screen`). */
 export async function updateMeetingControl(kind, refreshUi) {
   const rtc = await getRtc();
-  if (kind === 'cam') await rtc.toggleMeetingVideo('camera');
-  else if (kind === 'screen') await rtc.toggleMeetingVideo('screen');
-  else if (kind === 'data-saver') {
+  if (kind === 'cam' || kind === 'screen') {
+    try {
+      await rtc.toggleMeetingVideo(kind === 'cam' ? 'camera' : 'screen');
+    } catch {
+      toast(kind === 'cam' ? 'ไม่สามารถเปิดกล้องได้ กรุณาตรวจสอบสิทธิ์กล้อง' : 'ยกเลิกหรือไม่สามารถแชร์หน้าจอได้', 'err');
+      refreshUi();
+    }
+  } else if (kind === 'data-saver') {
     state.meetingDataSaver = !state.meetingDataSaver;
     if (state.joinedVoiceChannelId) await rtc.syncLocalMediaSettings();
     toast(state.meetingDataSaver ? 'เปิดโหมดประหยัดข้อมูล (~16 kbps)' : 'เปลี่ยนเป็นโหมดเสียงคมชัด (~48 kbps)', 'ok');

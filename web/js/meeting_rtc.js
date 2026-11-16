@@ -47,16 +47,16 @@ function attachLocalTracks(pc) {
   const videoTrack = localVideoStream?.getVideoTracks()[0] || null;
   if (audioTrack) pc.addTrack(audioTrack, localAudioStream);
   else pc.addTransceiver('audio', { direction: 'recvonly' });
-  if (videoTrack) pc.addTrack(videoTrack, localVideoStream);
+  return videoTrack ? pc.addTrack(videoTrack, localVideoStream) : null;
 }
 
 function createPeerEntry(peerId) {
   const existing = peers.get(peerId);
   if (existing) return existing;
   const pc = new RTCPeerConnection(ICE_CFG);
-  const entry = { pc, iceQueue: [], remoteDescSet: false, remoteStream: new MediaStream() };
+  const entry = { pc, iceQueue: [], remoteDescSet: false, remoteStream: new MediaStream(), videoSender: null };
   peers.set(peerId, entry);
-  attachLocalTracks(pc);
+  entry.videoSender = attachLocalTracks(pc);
 
   pc.onicecandidate = (e) => {
     if (e.candidate && activeChannelId) {
@@ -67,6 +67,9 @@ function createPeerEntry(peerId) {
     const stream = e.streams?.[0] || entry.remoteStream;
     if (!stream.getTracks().includes(e.track)) stream.addTrack(e.track);
     entry.remoteStream = stream;
+    e.track.onmute = () => hooks.onStateChange();
+    e.track.onunmute = () => hooks.onStateChange();
+    e.track.onended = () => hooks.onStateChange();
     hooks.onRemoteStream(peerId, stream);
   };
   pc.onconnectionstatechange = () => {
@@ -192,32 +195,44 @@ export async function syncLocalMediaSettings() {
 }
 
 /** Toggles low-data camera or screen share stream across all active peers. */
-export async function toggleMeetingVideo(kind = 'camera') {
+export async function toggleMeetingVideo(kind = 'camera', forceOff = false) {
   if (!activeChannelId) return;
-  const turningOff = (kind === 'camera' && state.meetingVideo) || (kind === 'screen' && state.meetingScreen);
+  const turningOff = forceOff || (kind === 'camera' && state.meetingVideo) || (kind === 'screen' && state.meetingScreen);
+  let nextStream = null;
+
+  if (!turningOff) {
+    const saver = state.meetingDataSaver;
+    nextStream = kind === 'screen'
+      ? await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: saver ? 10 : 15 }, audio: false })
+      : await navigator.mediaDevices.getUserMedia({ video: { width: saver ? 320 : 640, height: saver ? 240 : 480, frameRate: saver ? 12 : 24 }, audio: false });
+  }
+
   if (localVideoStream) { localVideoStream.getTracks().forEach((t) => t.stop()); localVideoStream = null; }
   state.meetingVideo = false;
   state.meetingScreen = false;
 
-  if (!turningOff) {
-    const saver = state.meetingDataSaver;
-    localVideoStream = kind === 'screen'
-      ? await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: saver ? 10 : 15 }, audio: false })
-      : await navigator.mediaDevices.getUserMedia({ video: { width: saver ? 320 : 640, height: saver ? 240 : 480, frameRate: saver ? 12 : 24 }, audio: false });
-    const track = localVideoStream.getVideoTracks()[0];
-    if (track) {
-      track.onended = () => { state.meetingVideo = false; state.meetingScreen = false; toggleMeetingVideo(kind).catch(() => {}); };
-      state.meetingVideo = kind === 'camera';
-      state.meetingScreen = kind === 'screen';
-    }
+  const track = nextStream?.getVideoTracks()[0] || null;
+  if (track) {
+    localVideoStream = nextStream;
+    track.onended = () => {
+      if (localVideoStream?.getVideoTracks()[0] === track) toggleMeetingVideo(kind, true).catch(() => {});
+    };
+    state.meetingVideo = kind === 'camera';
+    state.meetingScreen = kind === 'screen';
   }
 
-  const nextTrack = localVideoStream?.getVideoTracks()[0] || null;
-  for (const [peerId, { pc }] of peers.entries()) {
-    const sender = pc.getSenders().find((s) => s.track?.kind === 'video');
-    if (sender) await sender.replaceTrack(nextTrack);
-    else if (nextTrack) pc.addTrack(nextTrack, localVideoStream);
-    if (nextTrack && state.me.id > peerId) await sendOffer(peerId);
+  for (const [peerId, entry] of peers.entries()) {
+    const { pc } = entry;
+    if (!entry.videoSender) {
+      entry.videoSender = pc.getSenders().find((s) => s.track?.kind === 'video') || null;
+    }
+    if (entry.videoSender) {
+      await entry.videoSender.replaceTrack(track);
+      await applySenderCaps(pc);
+    } else if (track) {
+      entry.videoSender = pc.addTrack(track, localVideoStream);
+      await sendOffer(peerId);
+    }
   }
   hooks.onLocalVideo(localVideoStream);
   broadcastMeetingState(false);
