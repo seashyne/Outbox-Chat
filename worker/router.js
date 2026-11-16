@@ -25,6 +25,7 @@ import {
   handleDeleteMessage,
   handleListMessages,
   handlePostMessage,
+  handleRtcIce,
   handleToggleReaction,
   handleVoiceJoin,
   handleVoiceLeave,
@@ -101,6 +102,9 @@ export async function routeHubRequest(hub, request) {
     }
     if (method === "POST" && (m = path.match(/^\/api\/channels\/([^/]+)\/voice\/leave$/))) {
       return handleVoiceLeave(hub, request, decodeURIComponent(m[1]));
+    }
+    if (method === "GET" && path === "/api/rtc/ice") {
+      return await handleRtcIce(hub, request);
     }
     throw new HttpError(404, "route not found");
   } catch (err) {

@@ -22,7 +22,7 @@ pub use servers::{
     create_server, join_server, leave_server, list_servers, update_member_role, update_server,
 };
 pub use users::{get_settings, update_profile, update_settings};
-pub use voice::{voice_join, voice_leave};
+pub use voice::{rtc_ice, voice_join, voice_leave};
 
 use crate::error::{ApiError, ApiResult};
 use crate::model::{Channel, Health, PublicUser, Role, Server, ServerView, Store, User};

@@ -69,6 +69,34 @@ pub async fn voice_join(
     Ok(Json(VoiceStateResponse { channel_id, users }))
 }
 
+#[derive(Debug, Serialize)]
+pub struct RtcIceResponse {
+    #[serde(rename = "iceServers")]
+    pub ice_servers: Vec<serde_json::Value>,
+    #[serde(rename = "turnEnabled")]
+    pub turn_enabled: bool,
+}
+
+pub async fn rtc_ice(_auth: Auth) -> Json<RtcIceResponse> {
+    if let Ok(raw) = std::env::var("ICE_SERVERS_JSON") {
+        if let Ok(servers) = serde_json::from_str::<Vec<serde_json::Value>>(&raw) {
+            if !servers.is_empty() {
+                let turn_enabled = raw.contains("turn:") || raw.contains("turns:");
+                return Json(RtcIceResponse {
+                    ice_servers: servers,
+                    turn_enabled,
+                });
+            }
+        }
+    }
+    Json(RtcIceResponse {
+        ice_servers: vec![serde_json::json!({
+            "urls": ["stun:stun.cloudflare.com:3478", "stun:stun.l.google.com:19302"]
+        })],
+        turn_enabled: false,
+    })
+}
+
 pub async fn voice_leave(
     State(state): State<Arc<AppState>>,
     Auth(current_user): Auth,

@@ -205,3 +205,48 @@ export function handleVoiceLeave(hub, request, channelId) {
   hub.emit({ type: "voice_state", server_id: channel.server_id, channel_id: channelId, users });
   return jsonResponse({ channel_id: channelId, users });
 }
+
+/**
+ * Returns WebRTC ICE/TURN servers for authenticated meeting participants.
+ * Mints short-lived Cloudflare Realtime TURN credentials when `CF_TURN_TOKEN_ID`
+ * and `CF_TURN_API_TOKEN` secrets are configured on the Worker.
+ */
+export async function handleRtcIce(hub, request) {
+  hub.authenticate(request);
+  const env = hub.env || {};
+  const tokenId = env.CF_TURN_TOKEN_ID;
+  const apiToken = env.CF_TURN_API_TOKEN;
+
+  if (tokenId && apiToken) {
+    try {
+      const resp = await fetch(
+        `https://rtc.live.cloudflare.com/v1/turn/keys/${encodeURIComponent(tokenId)}/credentials/generate-ice-servers`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ ttl: 86400 }),
+        }
+      );
+      if (resp.ok) {
+        const payload = await resp.json();
+        if (Array.isArray(payload?.iceServers) && payload.iceServers.length) {
+          return jsonResponse({ iceServers: payload.iceServers, turnEnabled: true });
+        }
+      }
+    } catch {}
+  }
+
+  if (env.ICE_SERVERS_JSON) {
+    try {
+      const parsed = JSON.parse(env.ICE_SERVERS_JSON);
+      if (Array.isArray(parsed) && parsed.length) {
+        return jsonResponse({ iceServers: parsed, turnEnabled: /turns?:/i.test(env.ICE_SERVERS_JSON) });
+      }
+    } catch {}
+  }
+
+  return jsonResponse({
+    iceServers: [{ urls: ["stun:stun.cloudflare.com:3478", "stun:stun.l.google.com:19302"] }],
+    turnEnabled: false,
+  });
+}

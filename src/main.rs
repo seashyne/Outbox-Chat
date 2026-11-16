@@ -60,6 +60,7 @@ async fn main() -> std::io::Result<()> {
         .route("/messages/{id}/reactions", post(handlers::toggle_reaction))
         .route("/channels/{id}/voice/join", post(handlers::voice_join))
         .route("/channels/{id}/voice/leave", post(handlers::voice_leave))
+        .route("/rtc/ice", get(handlers::rtc_ice))
         .route("/ws", get(ws::ws_handler));
 
     let cors = CorsLayer::new()

@@ -3,6 +3,7 @@
  * with listen-only fallback, and on-demand camera/screen share switching.
  */
 
+import { api } from './api.js';
 import {
   applySenderCaps,
   samplePeersStats,
@@ -12,10 +13,19 @@ import {
 } from './meeting_sdp.js';
 import { state } from './state.js';
 
-const ICE_CFG = {
-  iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }],
-  iceCandidatePoolSize: 2,
-};
+const DEFAULT_ICE_SERVERS = [{ urls: ['stun:stun.cloudflare.com:3478', 'stun:stun.l.google.com:19302'] }];
+let activeIceCfg = { iceServers: DEFAULT_ICE_SERVERS, iceCandidatePoolSize: 2 };
+
+async function refreshIceConfig() {
+  try {
+    const res = await api('/rtc/ice');
+    if (Array.isArray(res?.iceServers) && res.iceServers.length) {
+      activeIceCfg = { iceServers: res.iceServers, iceCandidatePoolSize: 2 };
+    }
+  } catch {
+    activeIceCfg = { iceServers: DEFAULT_ICE_SERVERS, iceCandidatePoolSize: 2 };
+  }
+}
 
 let activeChannelId = null;
 let localAudioStream = null;
@@ -53,7 +63,7 @@ function attachLocalTracks(pc) {
 function createPeerEntry(peerId) {
   const existing = peers.get(peerId);
   if (existing) return existing;
-  const pc = new RTCPeerConnection(ICE_CFG);
+  const pc = new RTCPeerConnection(activeIceCfg);
   const entry = { pc, iceQueue: [], remoteDescSet: false, remoteStream: new MediaStream(), videoSender: null };
   peers.set(peerId, entry);
   entry.videoSender = attachLocalTracks(pc);
@@ -98,6 +108,7 @@ function closePeer(peerId) {
 /** Joins `channelId`, starts mono/DTX mic (or listen-only fallback), and connects peers. */
 export async function joinMeetingRtc(channelId, initialUsers, callbacks) {
   await leaveMeetingRtc();
+  await refreshIceConfig();
   activeChannelId = channelId;
   hooks = { ...hooks, ...callbacks };
   state.meetingListenOnly = false;

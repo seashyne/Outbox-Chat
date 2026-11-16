@@ -141,4 +141,21 @@ describe('Tier 1: Meeting Room & Low-Bandwidth WebRTC Signaling', () => {
       wsA.close();
     }
   });
+
+  it('10.3: returns authenticated /api/rtc/ice servers and rejects unauthenticated requests', async (t) => {
+    if (checkSkip(t, serverOnline)) return;
+
+    const unauth = await client.request('GET', '/api/rtc/ice');
+    assert.equal(unauth.status, 401);
+
+    const pass = randomPassword(12);
+    const user = await client.register(randomUsername('rtc_ice'), pass);
+    assert.equal(user.status, 200);
+
+    const iceRes = await client.request('GET', '/api/rtc/ice', { token: user.data.token });
+    assert.equal(iceRes.status, 200);
+    assert.ok(Array.isArray(iceRes.data.iceServers));
+    assert.ok(iceRes.data.iceServers.length >= 1);
+    assert.equal(typeof iceRes.data.turnEnabled, 'boolean');
+  });
 });
