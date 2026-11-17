@@ -2,6 +2,7 @@
  * HTTP API client wrapper, toast notification queue, and connection status helper.
  */
 
+import { apiUrl } from './config.js';
 import { $, state } from './state.js';
 
 let onUnauthorizedHandler = () => {};
@@ -41,7 +42,7 @@ export async function api(path, options = {}) {
   const headers = { ...(options.headers || {}) };
   if (options.body) headers['Content-Type'] = 'application/json';
   if (state.token) headers.Authorization = `Bearer ${state.token}`;
-  const response = await fetch(`/api${path}`, { ...options, headers });
+  const response = await fetch(apiUrl(path), { ...options, headers });
   if (response.status === 401) {
     const error = new Error('session expired');
     error.unauthorized = true;

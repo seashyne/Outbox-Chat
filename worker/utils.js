@@ -17,7 +17,8 @@ export const AVATAR_COLORS = [
 export const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "*",
+  "Access-Control-Allow-Headers": "Authorization, Content-Type",
+  "Access-Control-Max-Age": "86400",
 };
 
 /** HTTP error carrying an explicit status code for Worker JSON error responses. */

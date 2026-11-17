@@ -4,6 +4,7 @@
 
 import { appendMessage, loadMessages, refreshMessages } from './actions.js';
 import { setConn, toast } from './api.js';
+import { wsUrl } from './config.js';
 import { handleMeetingWsEvent } from './meeting_ui.js';
 import { nearBottom, renderMessages, scrollToBottom, updateJumpButton } from './render_chat.js';
 import {
@@ -23,8 +24,7 @@ export function connectWs() {
   if (!state.token) return;
   clearTimeout(state.reconnectTimer);
   setConn('', 'กำลังเชื่อมต่อ…');
-  const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  const socket = new WebSocket(`${protocol}://${location.host}/api/ws?token=${encodeURIComponent(state.token)}`);
+  const socket = new WebSocket(wsUrl(state.token));
   state.ws = socket;
 
   socket.onopen = () => setConn('ok', 'ออนไลน์ · พร้อมคุยแล้ว');

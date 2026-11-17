@@ -5,6 +5,7 @@
 
 import { loadBootstrap, loadMessages, renderAll } from './actions.js';
 import { api, handleError } from './api.js';
+import { apiUrl } from './config.js';
 import { closeOverlays } from './menus.js';
 import { leaveMeetingRoom } from './meeting_ui.js';
 import { renderRail } from './render_shell.js';
@@ -83,7 +84,7 @@ export function bindAuthEvents() {
 
 export function logout(expired = false) {
   if (!expired && state.token) {
-    fetch('/api/logout', {
+    fetch(apiUrl('/logout'), {
       method: 'POST',
       headers: { Authorization: `Bearer ${state.token}` },
     }).catch(() => {});
@@ -179,7 +180,7 @@ export async function doAuth() {
   const actionLabel = authMode === 'login' ? 'เข้าสู่ระบบ' : 'สมัครสมาชิก';
   button.textContent = `กำลัง${actionLabel}…`;
   try {
-    const endpoint = authMode === 'login' ? '/api/login' : '/api/register';
+    const endpoint = apiUrl(authMode === 'login' ? '/login' : '/register');
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
