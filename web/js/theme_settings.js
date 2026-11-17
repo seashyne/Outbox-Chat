@@ -67,7 +67,7 @@ export async function saveThemeSettings(onSaved) {
   };
   for (const [k, v] of Object.entries(palette)) {
     if (!/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(v)) {
-      $('settingsError').textContent = `รหัสสี ${k} ไม่ถูกต้อง (ต้องเป็น Hex เช่น #5865f2)`;
+      $('settingsError').textContent = `กรุณากรอกรหัสสีให้ถูกต้อง เช่น #5865f2`;
       return;
     }
   }
