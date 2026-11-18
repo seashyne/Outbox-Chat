@@ -2,6 +2,8 @@
  * Message stream renderer, scroll tracking, and composer sizing helpers.
  */
 
+import { t } from './i18n.js';
+import { resolveProfile } from './profile_helpers.js';
 import {
   $,
   ICONS,
@@ -62,8 +64,8 @@ export function renderMessages() {
   $('channelIntro').hidden = !!state.search;
   $('channelIntro').innerHTML = channel ? `
     <div class="intro-icon">${channel.kind === 'text' ? '#' : ICONS.voiceLg}</div>
-    <h2>ยินดีต้อนรับสู่ #${escapeHtml(channel.name)}</h2>
-    <p>${escapeHtml(channel.topic || 'นี่คือจุดเริ่มต้นของช่องนี้')}</p>
+    <h2>${escapeHtml(t('chat.welcome', { name: channel.name }))}</h2>
+    <p>${escapeHtml(channel.topic || t('chat.channelStart'))}</p>
     <div class="intro-line"></div>` : '';
 
   const canDeleteAll = ['owner', 'admin'].includes(currentServer()?.role);
@@ -75,14 +77,14 @@ export function renderMessages() {
     : state.messages;
 
   let html = needle
-    ? `<div class="search-summary">พบ ${visible.length} ข้อความที่ตรงกับ “${escapeHtml(query)}”
-         <button data-action="clear-search">ล้างการค้นหา</button></div>`
+    ? `<div class="search-summary">${escapeHtml(t('chat.searchSummary', { count: visible.length, query }))}
+         <button data-action="clear-search">${escapeHtml(t('chat.clearSearch'))}</button></div>`
     : '';
 
   if (!visible.length) {
     html += needle
-      ? `<div class="empty-state"><div class="empty-icon">${ICONS.searchLg}</div><h3>ไม่พบข้อความที่ค้นหา</h3><p>ลองใช้คำอื่นดูนะ</p></div>`
-      : `<div class="empty-state"><div class="empty-icon">${ICONS.chatLg}</div><h3>ยังไม่มีข้อความในช่องนี้</h3><p>เริ่มบทสนทนาแรกได้เลยนะ</p></div>`;
+      ? `<div class="empty-state"><div class="empty-icon">${ICONS.searchLg}</div><h3>${escapeHtml(t('chat.noSearchTitle'))}</h3><p>${escapeHtml(t('chat.noSearchDesc'))}</p></div>`
+      : `<div class="empty-state"><div class="empty-icon">${ICONS.chatLg}</div><h3>${escapeHtml(t('chat.emptyTitle'))}</h3><p>${escapeHtml(t('chat.emptyDesc'))}</p></div>`;
   }
 
   let lastAuthor = null;
@@ -96,13 +98,14 @@ export function renderMessages() {
       lastDay = day;
       lastAuthor = null;
     }
-    const author = m.author;
+    const author = resolveProfile(m.author);
     const grouped = !needle && m.author.id === lastAuthor && time - lastTime < 5 * 60 * 1000 && !m.reply;
     const canDelete = canDeleteAll || (state.me && author.id === state.me.id);
+    const replyAuthor = m.reply ? resolveProfile(m.reply.author) : null;
     const replyQuote = m.reply ? `
-      <button class="reply-quote" data-action="goto-message" data-id="${escapeHtml(m.reply.id)}" title="ไปที่ข้อความต้นฉบับ">
-        ${avatar(m.reply.author, 'xs')}
-        <span class="rq-name" style="color:${safeColor(m.reply.author.color)}">${escapeHtml(m.reply.author.display_name)}</span>
+      <button class="reply-quote" data-action="goto-message" data-id="${escapeHtml(m.reply.id)}" title="${escapeHtml(t('chat.gotoOriginal'))}">
+        ${avatar(replyAuthor, 'xs')}
+        <span class="rq-name" style="color:${safeColor(replyAuthor.color)}">${escapeHtml(replyAuthor.display_name)}</span>
         <span class="rq-text">${escapeHtml(m.reply.content)}</span>
         <span class="rq-icon">${ICONS.reply}</span>
       </button>` : '';
@@ -113,34 +116,34 @@ export function renderMessages() {
           const mine = Array.isArray(r.users) ? !!(state.me && r.users.includes(state.me.id)) : !!r.me;
           return `
           <button class="reaction ${mine ? 'mine' : ''}" data-action="reaction" data-id="${escapeHtml(m.id)}"
-                  data-emoji="${escapeHtml(r.emoji)}" title="${mine ? 'ยกเลิกปฏิกิริยา' : 'เพิ่มปฏิกิริยา'}">
+                  data-emoji="${escapeHtml(r.emoji)}" title="${escapeHtml(mine ? t('chat.removeReaction') : t('chat.addReaction'))}">
             <span>${escapeHtml(r.emoji)}</span><b>${r.count}</b>
           </button>`;
         }).join('')}
-        <button class="reaction add" data-action="react-more" data-id="${escapeHtml(m.id)}" title="เพิ่มปฏิกิริยา">${ICONS.plus}</button>
+        <button class="reaction add" data-action="react-more" data-id="${escapeHtml(m.id)}" title="${escapeHtml(t('chat.addReaction'))}">${ICONS.plus}</button>
       </div>` : '';
 
     html += `
       <div class="msg ${grouped ? 'grouped' : ''}" data-id="${escapeHtml(m.id)}">
         <div class="gutter">${grouped
           ? `<span class="timestamp-mini">${fmtTime(m.created_at)}</span>`
-          : `<button class="avatar-btn" data-action="profile" data-id="${escapeHtml(author.id)}" aria-label="โปรไฟล์ ${escapeHtml(author.display_name)}">${avatar(author)}</button>`}</div>
+          : `<button class="avatar-btn" data-action="profile" data-id="${escapeHtml(author.id)}" aria-label="${escapeHtml(t('chat.profileAria', { name: author.display_name }))}">${avatar(author)}</button>`}</div>
         <div class="body">
           ${replyQuote}
           ${grouped ? '' : `<div class="meta">
             <button class="author" data-action="profile" data-id="${escapeHtml(author.id)}" style="color:${safeColor(author.color)}">${escapeHtml(author.display_name)}</button>
-            ${author.bot ? '<span class="bot-tag">bot</span>' : ''}
+            ${author.bot ? `<span class="bot-tag">${escapeHtml(t('common.bot'))}</span>` : ''}
             <span class="time" title="${escapeHtml(fmtFull(m.created_at))}">${fmtTime(m.created_at)}</span>
           </div>`}
-          <div class="content">${formatContent(m.content, query)}${m.edited_at ? '<span class="edited">แก้ไขแล้ว</span>' : ''}</div>
+          <div class="content">${formatContent(m.content, query)}${m.edited_at ? `<span class="edited">${escapeHtml(t('chat.edited'))}</span>` : ''}</div>
           ${reactionHtml}
         </div>
         <div class="msg-toolbar">
-          <button data-action="quick-react" data-id="${escapeHtml(m.id)}" title="ตอบโต้ด่วน">+1</button>
-          <button data-action="react-more" data-id="${escapeHtml(m.id)}" title="เพิ่มปฏิกิริยา">${ICONS.plus}</button>
-          <button data-action="reply" data-id="${escapeHtml(m.id)}" title="ตอบกลับ">${ICONS.reply}</button>
-          <button data-action="copy-message" data-id="${escapeHtml(m.id)}" title="คัดลอกข้อความ">${ICONS.copy}</button>
-          ${canDelete ? `<button data-action="delete-message" data-id="${escapeHtml(m.id)}" title="ลบข้อความ">${ICONS.trash}</button>` : ''}
+          <button data-action="quick-react" data-id="${escapeHtml(m.id)}" title="${escapeHtml(t('chat.quickReact'))}">+1</button>
+          <button data-action="react-more" data-id="${escapeHtml(m.id)}" title="${escapeHtml(t('chat.addReaction'))}">${ICONS.plus}</button>
+          <button data-action="reply" data-id="${escapeHtml(m.id)}" title="${escapeHtml(t('chat.reply'))}">${ICONS.reply}</button>
+          <button data-action="copy-message" data-id="${escapeHtml(m.id)}" title="${escapeHtml(t('chat.copyMessage'))}">${ICONS.copy}</button>
+          ${canDelete ? `<button data-action="delete-message" data-id="${escapeHtml(m.id)}" title="${escapeHtml(t('chat.deleteMessage'))}">${ICONS.trash}</button>` : ''}
         </div>
       </div>`;
     lastAuthor = author.id;

@@ -5,6 +5,7 @@
 
 import { clearReply, clearSearch, sendMessage, setReply, toggleReaction } from './actions.js';
 import { api, handleError, toast } from './api.js';
+import { t } from './i18n.js';
 import { openComposerMenu, openEmojiPicker, openProfile, pickEmoji } from './menus.js';
 import { autoGrow, renderMessages, scrollToBottom, updateJumpButton } from './render_chat.js';
 import { $, currentChannel, state } from './state.js';
@@ -29,8 +30,8 @@ export function bindMessageEvents() {
       const targetMsg = state.messages.find((m) => m.id === id);
       if (targetMsg) {
         navigator.clipboard?.writeText(targetMsg.content)
-          .then(() => toast('คัดลอกข้อความแล้ว', 'ok'))
-          .catch(() => toast('คัดลอกไม่สำเร็จ', 'err'));
+          .then(() => toast(t('chat.copiedMessage'), 'ok'))
+          .catch(() => toast(t('common.copyFailed'), 'err'));
       }
     } else if (action === 'profile') openProfile(id, btn);
     else if (action === 'clear-search') clearSearch();
@@ -40,7 +41,7 @@ export function bindMessageEvents() {
         target.scrollIntoView({ behavior: 'smooth', block: 'center' });
         target.classList.add('flash');
         setTimeout(() => target.classList.remove('flash'), 1400);
-      } else toast('ข้อความต้นฉบับอยู่นอกช่วงที่โหลดไว้');
+      } else toast(t('chat.originalOutOfRange'));
     }
   });
 

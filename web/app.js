@@ -7,15 +7,21 @@ import {
   clearReply,
   clearSearch,
   insertMention,
+  openDmChannel,
+  renderAll,
   selectChannel,
+  selectFriendsHome,
   selectServer,
   setCloseOverlaysHook,
   setReply,
+  startDmWithUser,
   toggleSearch,
 } from './js/actions.js';
-import { api, handleError, setUnauthorizedHandler, toast } from './js/api.js';
+import { handleError, setUnauthorizedHandler, toast } from './js/api.js';
 import { bindAuthEvents, logout, start, toggleTheme } from './js/auth.js';
 import { bindMessageEvents } from './js/composer.js';
+import { acceptFriendRequest, openDirectChat, sendFriendRequest } from './js/friends_ui.js';
+import { setLanguage } from './js/i18n.js';
 import { joinMeetingRoom, leaveMeetingRoom, updateMeetingControl } from './js/meeting_ui.js';
 import {
   closeOverlays,
@@ -62,6 +68,7 @@ $('rail').addEventListener('click', (e) => {
   if (!btn) return;
   const action = btn.dataset.action;
   if (action === 'server') selectServer(btn.dataset.id);
+  else if (action === 'friends') selectFriendsHome();
   else if (action === 'create-server') openCreateServer();
   else if (action === 'directory') openDirectory();
   else if (action === 'theme') openSettingsModal('appearance');
@@ -80,6 +87,8 @@ $('channelList').addEventListener('click', (e) => {
   const action = btn.dataset.action;
   const id = btn.dataset.id;
   if (action === 'channel') selectChannel(id);
+  else if (action === 'home-friends') selectFriendsHome();
+  else if (action === 'open-dm') openDirectChat(id, null, openDmChannel).catch(handleError);
   else if (action === 'create-channel') openCreateChannel(btn.dataset.kind || 'text');
   else if (action === 'toggle-group') {
     const key = btn.dataset.group;
@@ -221,6 +230,15 @@ $('profilePopout').addEventListener('click', (e) => {
   const id = btn.dataset.id;
   const action = btn.dataset.action;
   if (action === 'mention-user') insertMention(id);
+  else if (action === 'start-dm') { closeOverlays(); startDmWithUser(id); }
+  else if (action === 'add-friend') {
+    const uname = btn.dataset.username || '';
+    closeOverlays();
+    sendFriendRequest(uname, renderAll).catch(handleError);
+  } else if (action === 'accept-friend') {
+    closeOverlays();
+    acceptFriendRequest(id, renderAll).catch(handleError);
+  }
   else if (action === 'reply-to-user') {
     const last = [...state.messages].reverse().find((m) => m.author.id === id);
     closeOverlays();
@@ -255,4 +273,5 @@ document.addEventListener('keydown', (e) => {
 window.addEventListener('resize', () => { if (state.popover) closeOverlays(); });
 
 autoGrow();
-if (state.token) start();
+if (state.token) setLanguage('th').then(start);
+

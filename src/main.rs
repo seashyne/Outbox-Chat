@@ -44,10 +44,16 @@ async fn main() -> std::io::Result<()> {
             get(handlers::list_servers).post(handlers::create_server),
         )
         .route("/servers/{id}", patch(handlers::update_server))
+        .route("/servers/{id}/profile", patch(handlers::update_server_profile))
         .route(
             "/servers/{id}/members/{user_id}/role",
             patch(handlers::update_member_role),
         )
+        .route("/friends", get(handlers::list_friends))
+        .route("/friends/request", post(handlers::request_friend))
+        .route("/friends/{user_id}/accept", post(handlers::accept_friend))
+        .route("/friends/{user_id}", delete(handlers::remove_friend))
+        .route("/dm/{user_id}", post(handlers::open_dm))
         .route("/servers/{id}/channels", post(handlers::create_channel))
         .route("/servers/{id}/join", post(handlers::join_server))
         .route("/servers/{id}/leave", post(handlers::leave_server))

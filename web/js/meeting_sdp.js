@@ -3,24 +3,26 @@
  * RTCRtpSender caps, local VAD speaking detector, and stats aggregation.
  */
 
+import { t } from './i18n.js';
 import { state } from './state.js';
 
 let vadTimer = null;
 let audioCtx = null;
 let analyser = null;
 
-/** Screen share quality presets (480p@30 up to Full HD 1080p@60 underneath, clean Thai labels). */
+/** Screen share quality presets (480p@30 up to Full HD 1080p@60 underneath, localized labels). */
 export const SCREEN_PRESETS = {
-  sd: { key: 'sd', label: 'ประหยัดเน็ต', width: 854, height: 480, fps: 30, kbps: 800, hint: 'detail' },
-  hd: { key: 'hd', label: 'มาตรฐาน', width: 1280, height: 720, fps: 30, kbps: 1800, hint: 'detail' },
-  fhd: { key: 'fhd', label: 'คมชัดสูงสุด', width: 1920, height: 1080, fps: 60, kbps: 4500, hint: 'motion' },
+  sd: { key: 'sd', labelKey: 'meeting.presetSd', width: 854, height: 480, fps: 30, kbps: 800, hint: 'detail' },
+  hd: { key: 'hd', labelKey: 'meeting.presetHd', width: 1280, height: 720, fps: 30, kbps: 1800, hint: 'detail' },
+  fhd: { key: 'fhd', labelKey: 'meeting.presetFhd', width: 1920, height: 1080, fps: 60, kbps: 4500, hint: 'motion' },
 };
 
 const PRESET_ORDER = ['sd', 'hd', 'fhd'];
 
 /** Returns active screen-share preset config (defaults to 720p@30fps). */
 export function getScreenPreset() {
-  return SCREEN_PRESETS[state.meetingScreenPreset] || SCREEN_PRESETS.hd;
+  const raw = SCREEN_PRESETS[state.meetingScreenPreset] || SCREEN_PRESETS.hd;
+  return { ...raw, label: t(raw.labelKey) };
 }
 
 /** Advances screen-share quality preset in cycle: 480p30 -> 720p30 -> 1080p60. */

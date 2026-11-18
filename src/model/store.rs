@@ -4,8 +4,8 @@
 //! keeping a relational table shape (`users`, `servers`, `channels`, `messages`, `members`).
 
 use super::{
-    new_token, now, Channel, ChannelKind, Id, Message, MessageView, ReactionView, ReplyPreview,
-    Role, Server, ServerRolesConfig, User, UserSettings,
+    new_token, now, Channel, ChannelKind, FriendEdge, Id, Message, MessageView, ReactionView,
+    ReplyPreview, Role, Server, ServerProfile, ServerRolesConfig, User, UserSettings,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -21,6 +21,12 @@ pub struct Store {
     pub messages: HashMap<Id, Vec<Message>>,
     /// server_id -> (user_id -> role)
     pub members: HashMap<Id, HashMap<Id, Role>>,
+    /// "{min_uid}:{max_uid}" -> FriendEdge
+    #[serde(default)]
+    pub friends: HashMap<String, FriendEdge>,
+    /// "{server_id}:{user_id}" -> ServerProfile
+    #[serde(default)]
+    pub server_profiles: HashMap<String, ServerProfile>,
     /// In-memory lookup: message_id -> channel_id (rebuilt on load/seed).
     #[serde(skip)]
     pub message_index: HashMap<Id, Id>,
@@ -117,8 +123,15 @@ impl Store {
         self.channels.get(id)
     }
 
-    /// Returns true if `user_id` is a member of `server_id`.
+    /// Returns true if `user_id` is a member of `server_id` or a participant of DM `dm:{a}:{b}`.
     pub fn is_member(&self, server_id: &str, user_id: &str) -> bool {
+        if let Some(pair) = server_id.strip_prefix("dm:") {
+            let mut parts = pair.split(':');
+            return matches!(
+                (parts.next(), parts.next(), parts.next()),
+                (Some(a), Some(b), None) if a == user_id || b == user_id
+            );
+        }
         self.members
             .get(server_id)
             .is_some_and(|members| members.contains_key(user_id))
@@ -138,6 +151,9 @@ impl Store {
             display_name: "Outbox Bot".into(),
             color: "#5865f2".into(),
             avatar_url: None,
+            banner_url: None,
+            bio: String::new(),
+            status_text: String::new(),
             token: new_token(),
             bot: true,
             created_at: now(),

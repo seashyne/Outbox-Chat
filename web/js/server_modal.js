@@ -5,13 +5,14 @@
 
 import { selectServer } from './actions.js';
 import { api, toast } from './api.js';
+import { t } from './i18n.js';
 import { openModal } from './modals.js';
 import { renderHeader, renderMembers, renderRail, renderSidebar } from './render_shell.js';
 import {
   DEFAULT_ROLES_CONFIG,
-  SERVER_TEMPLATES,
   buildServerFieldsHtml,
   buildTemplateGridHtml,
+  getServerTemplates,
   memberRoleFor,
   roleMeta,
 } from './server_templates.js';
@@ -24,8 +25,8 @@ function readServerFormPayload() {
     description: $('srv_desc').value.trim(),
     accent_color: normalizeHex6($('srv_accent').value, '#5865f2'),
     roles_config: {
-      admin_label: $('srv_admin_label').value.trim() || 'ผู้ดูแลระบบ',
-      member_label: $('srv_member_label').value.trim() || 'สมาชิก',
+      admin_label: $('srv_admin_label').value.trim() || t('role.admin'),
+      member_label: $('srv_member_label').value.trim() || t('role.member'),
       admin_color: normalizeHex6($('srv_admin_color').value, '#f59e0b'),
       member_color: normalizeHex6($('srv_member_color').value, '#94a3b8'),
       allow_member_create_channel: $('srv_allow_channel').checked,
@@ -54,11 +55,12 @@ function wireColorSwatches() {
 /** Opens the template-enabled Create Server modal with customizable metadata and roles. */
 export function openCreateServer() {
   let selectedTemplate = 'blank';
-  const starter = SERVER_TEMPLATES[0];
+  const templates = getServerTemplates();
+  const starter = templates[0];
   openModal({
-    title: 'สร้างเซิร์ฟเวอร์ใหม่',
-    desc: 'เลือกตัวอย่างเริ่มต้นหรือปรับแต่งชื่อ สี และบทบาทสมาชิกได้ทันที',
-    submitText: 'สร้างเซิร์ฟเวอร์',
+    title: t('srv.createTitle'),
+    desc: t('srv.createDesc'),
+    submitText: t('srv.createBtn'),
     wide: true,
     html: buildTemplateGridHtml(selectedTemplate) + buildServerFieldsHtml({
       name: '',
@@ -71,11 +73,11 @@ export function openCreateServer() {
     }),
     onSubmit: async () => {
       const payload = { template: selectedTemplate, ...readServerFormPayload() };
-      if (!payload.name) throw new Error('กรุณาใส่ชื่อเซิร์ฟเวอร์');
+      if (!payload.name) throw new Error(t('srv.errName'));
       const server = await api('/servers', { method: 'POST', body: JSON.stringify(payload) });
       state.servers.push(server);
       await selectServer(server.id);
-      toast(`สร้างเซิร์ฟเวอร์ "${server.name}" แล้ว`, 'ok');
+      toast(t('srv.createdToast', { name: server.name }), 'ok');
     },
   });
 
@@ -83,7 +85,7 @@ export function openCreateServer() {
   $('templateGrid')?.addEventListener('click', (e) => {
     const card = e.target.closest('[data-template]');
     if (!card) return;
-    const tpl = SERVER_TEMPLATES.find((t) => t.key === card.dataset.template);
+    const tpl = templates.find((item) => item.key === card.dataset.template);
     if (!tpl) return;
     selectedTemplate = tpl.key;
     document.querySelectorAll('#templateGrid .template-card').forEach((el) => {
@@ -103,7 +105,8 @@ export function openCreateServer() {
 
 function renderMemberRolesList(server) {
   const isOwner = Boolean(state.me && server.owner_id === state.me.id);
-  const cfg = { ...DEFAULT_ROLES_CONFIG, ...(server.roles_config || {}) };
+  const adminMeta = roleMeta(server, 'admin');
+  const memberMeta = roleMeta(server, 'member');
   return (server.members || []).map((m) => {
     const rKey = memberRoleFor(server, m.id);
     const meta = roleMeta(server, rKey);
@@ -118,9 +121,9 @@ function renderMemberRolesList(server) {
           </div>
         </div>
         ${editable ? `
-          <select class="srv-role-select" data-role-user="${escapeHtml(m.id)}" aria-label="เปลี่ยนบทบาทของ ${escapeHtml(m.display_name)}">
-            <option value="admin" ${rKey === 'admin' ? 'selected' : ''}>${escapeHtml(cfg.admin_label)}</option>
-            <option value="member" ${rKey === 'member' ? 'selected' : ''}>${escapeHtml(cfg.member_label)}</option>
+          <select class="srv-role-select" data-role-user="${escapeHtml(m.id)}" aria-label="${escapeHtml(t('srv.roleSelectAria', { name: m.display_name }))}">
+            <option value="admin" ${rKey === 'admin' ? 'selected' : ''}>${escapeHtml(adminMeta.label)}</option>
+            <option value="member" ${rKey === 'member' ? 'selected' : ''}>${escapeHtml(memberMeta.label)}</option>
           </select>` : `
           <span class="role-pill" style="--role-color:${meta.color}">${escapeHtml(meta.label)}</span>`}
       </div>`;
@@ -136,8 +139,8 @@ export function openServerSettings(initialTab = 'general') {
 
   const html = `
     <div class="settings-tabs" role="tablist">
-      <button type="button" class="settings-tab ${initialTab === 'general' ? 'active' : ''}" data-srv-tab="general">ข้อมูลและบทบาท</button>
-      <button type="button" class="settings-tab ${initialTab === 'members' ? 'active' : ''}" data-srv-tab="members">สมาชิกและปรับ Role</button>
+      <button type="button" class="settings-tab ${initialTab === 'general' ? 'active' : ''}" data-srv-tab="general">${escapeHtml(t('srv.tabGeneral'))}</button>
+      <button type="button" class="settings-tab ${initialTab === 'members' ? 'active' : ''}" data-srv-tab="members">${escapeHtml(t('srv.tabMembers'))}</button>
     </div>
     <div id="srvPaneGeneral" ${initialTab !== 'general' ? 'hidden' : ''}>
       ${buildServerFieldsHtml({
@@ -145,31 +148,29 @@ export function openServerSettings(initialTab = 'general') {
         icon: server.icon,
         description: server.description,
         accent_color: server.accent_color,
-        admin_label: cfg.admin_label,
-        member_label: cfg.member_label,
+        admin_label: roleMeta(server, 'admin').label,
+        member_label: roleMeta(server, 'member').label,
         admin_color: cfg.admin_color,
         member_color: cfg.member_color,
         allow_member_create_channel: cfg.allow_member_create_channel,
       }, !canManage)}
     </div>
     <div id="srvPaneMembers" class="srv-members-list" ${initialTab !== 'members' ? 'hidden' : ''}>
-      ${server.owner_id === state.me?.id
-        ? '<p class="srv-role-hint">เจ้าของเซิร์ฟเวอร์สามารถปรับบทบาทสมาชิกแต่ละคนได้ทันที</p>'
-        : '<p class="srv-role-hint">เฉพาะเจ้าของเซิร์ฟเวอร์เท่านั้นที่ปรับบทบาทรายบุคคลได้</p>'}
+      <p class="srv-role-hint">${escapeHtml(server.owner_id === state.me?.id ? t('srv.ownerHint') : t('srv.nonOwnerHint'))}</p>
       <div id="srvMembersRows">${renderMemberRolesList(server)}</div>
     </div>`;
 
   openModal({
-    title: `ตั้งค่าเซิร์ฟเวอร์ · ${server.name}`,
-    desc: canManage ? 'ปรับแต่งข้อมูลเซิร์ฟเวอร์ ชื่อบทบาท และสิทธิ์ของสมาชิก' : 'ดูข้อมูลเซิร์ฟเวอร์และบทบาทสมาชิก',
-    submitText: 'บันทึกการตั้งค่า',
+    title: t('srv.settingsTitle', { name: server.name }),
+    desc: canManage ? t('srv.settingsDescEdit') : t('srv.settingsDescView'),
+    submitText: t('srv.saveBtn'),
     hideSubmit: !canManage || initialTab === 'members',
     wide: true,
     html,
     onSubmit: async () => {
       if (!canManage) return;
       const payload = readServerFormPayload();
-      if (!payload.name) throw new Error('กรุณาใส่ชื่อเซิร์ฟเวอร์');
+      if (!payload.name) throw new Error(t('srv.errName'));
       const updated = await api(`/servers/${encodeURIComponent(server.id)}`, {
         method: 'PATCH',
         body: JSON.stringify(payload),
@@ -180,7 +181,7 @@ export function openServerSettings(initialTab = 'general') {
       renderSidebar();
       renderHeader();
       renderMembers();
-      toast('บันทึกการตั้งค่าเซิร์ฟเวอร์แล้ว', 'ok');
+      toast(t('srv.savedToast'), 'ok');
     },
   });
 
@@ -212,9 +213,9 @@ export function openServerSettings(initialTab = 'general') {
       }
       renderMembers();
       renderSidebar();
-      toast('อัปเดตบทบาทสมาชิกแล้ว', 'ok');
+      toast(t('srv.roleUpdatedToast'), 'ok');
     } catch (err) {
-      $('modalError').textContent = err.message || 'ปรับบทบาทไม่สำเร็จ';
+      $('modalError').textContent = err.message || t('srv.roleUpdateFail');
       sel.value = memberRoleFor(currentServer(), targetId);
     } finally {
       sel.disabled = false;
@@ -234,5 +235,5 @@ export async function changeMemberRole(serverId, userId, nextRole) {
   }
   renderMembers();
   renderSidebar();
-  toast('ปรับบทบาทสมาชิกแล้ว', 'ok');
+  toast(t('srv.roleUpdatedToast'), 'ok');
 }

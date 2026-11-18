@@ -3,6 +3,7 @@
  */
 
 import { apiUrl } from './config.js';
+import { t, translateApiError } from './i18n.js';
 import { $, state } from './state.js';
 
 let onUnauthorizedHandler = () => {};
@@ -27,7 +28,7 @@ export function handleError(error) {
     onUnauthorizedHandler(true);
     return;
   }
-  toast(error?.message || 'เกิดข้อผิดพลาด', 'err');
+  toast(error?.message || t('error.generic'), 'err');
 }
 
 /** Updates the connection indicator label in the composer footer. */
@@ -50,7 +51,7 @@ export async function api(path, options = {}) {
   }
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
-    throw new Error(payload.error || 'ทำรายการไม่สำเร็จ');
+    throw new Error(payload.error ? translateApiError(payload.error) : t('error.requestFailed'));
   }
   return response.status === 204 ? null : response.json();
 }

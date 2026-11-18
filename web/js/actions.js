@@ -4,6 +4,8 @@
  */
 
 import { api, handleError } from './api.js';
+import { loadFriends, openDirectChat, renderFriendsStage } from './friends_ui.js';
+import { ALLOWED_LANGUAGES, setLanguage, t } from './i18n.js';
 import { autoGrow, nearBottom, renderMessages, scrollToBottom } from './render_chat.js';
 import {
   renderHeader,
@@ -38,23 +40,29 @@ export function renderAll() {
   renderSidebar();
   renderUserPanel();
   renderHeader();
+  renderFriendsStage(renderAll, openDmChannel);
   renderMessages();
   renderMembers();
   renderTyping();
   renderReplyBar();
-  $('memberList').hidden = !state.membersVisible;
+  $('memberList').hidden = !state.membersVisible || state.homeMode;
 }
 
-/** Fetches bootstrap state (`me`, `settings`, `servers`, `online`, `voice`) and applies theme. */
+/** Fetches bootstrap state + friends list in parallel and pre-warms voice module. */
 export async function loadBootstrap() {
-  const data = await api('/bootstrap');
+  const [data] = await Promise.all([api('/bootstrap'), loadFriends()]);
   state.me = data.me;
   state.servers = data.servers;
   state.online = new Set(data.online);
   state.voice = data.voice || {};
+  state.homeMode = false;
+  state.dmChannel = null;
+  state.dmPeer = null;
+  state.messageCache.clear();
   state.currentServerId = data.default_server_id || null;
   state.currentChannelId = data.default_channel_id || null;
   state.voiceChannelId = null;
+  setTimeout(() => { import('./meeting_rtc.js').catch(() => {}); }, 400);
   if (data.settings) {
     const theme = VALID_THEMES.includes(data.settings.theme) ? data.settings.theme : 'dark';
     const customColors = {
@@ -66,8 +74,26 @@ export async function loadBootstrap() {
       state.myStatus = data.settings.status;
       state.settings.status = data.settings.status;
     }
+    if (data.settings.language && ALLOWED_LANGUAGES.includes(data.settings.language)) {
+      state.settings.language = data.settings.language;
+      setLanguage(data.settings.language, { persistLocal: true, notify: false });
+    }
     applyTheme(theme, customColors);
   }
+}
+
+/** Updates the message composer placeholder for the current DM or server channel. */
+export function updateComposerPlaceholder() {
+  const input = $('messageInput');
+  if (!input) return;
+  if (state.homeMode && state.dmChannel) {
+    input.placeholder = t('composer.placeholderDm', { name: state.dmPeer?.display_name || t('rail.friendsShort') });
+    return;
+  }
+  const channel = currentChannel();
+  input.placeholder = channel
+    ? t('composer.placeholderChannel', { name: channel.name })
+    : t('composer.placeholderSelect');
 }
 
 export function clearReply() {
@@ -125,19 +151,31 @@ export function insertMention(userId) {
 
 export async function loadMessages() {
   const channel = currentChannel();
-  if (!channel || channel.kind !== 'text') {
+  if (!channel || channel.kind !== 'text' || (state.homeMode && !state.dmChannel)) {
     state.messages = [];
     renderMessages();
     $('jumpBtn').hidden = true;
     return;
   }
-  try {
-    state.messages = await api(`/channels/${encodeURIComponent(channel.id)}/messages?limit=60`);
+  const cid = channel.id;
+  const cached = state.messageCache.get(cid);
+  if (cached) {
+    state.messages = cached;
     renderMessages();
     scrollToBottom();
     $('jumpBtn').hidden = true;
+  }
+  try {
+    const fresh = await api(`/channels/${encodeURIComponent(cid)}/messages?limit=60`);
+    state.messageCache.set(cid, fresh);
+    if (currentChannel()?.id === cid) {
+      state.messages = fresh;
+      renderMessages();
+      if (!cached || nearBottom()) scrollToBottom();
+      $('jumpBtn').hidden = true;
+    }
   } catch (error) {
-    handleError(error);
+    if (!cached) handleError(error);
   }
 }
 
@@ -146,7 +184,9 @@ export async function refreshMessages() {
   if (!channel || channel.kind !== 'text') return;
   try {
     const stick = nearBottom();
-    state.messages = await api(`/channels/${encodeURIComponent(channel.id)}/messages?limit=60`);
+    const fresh = await api(`/channels/${encodeURIComponent(channel.id)}/messages?limit=60`);
+    state.messageCache.set(channel.id, fresh);
+    state.messages = fresh;
     renderMessages();
     if (stick) scrollToBottom();
   } catch (error) {
@@ -155,6 +195,13 @@ export async function refreshMessages() {
 }
 
 export function appendMessage(message) {
+  const cid = message.channel_id;
+  const list = state.messageCache.get(cid);
+  if (list && !list.some((m) => m.id === message.id)) {
+    list.push(message);
+    if (list.length > 200) list.shift();
+  }
+  if (currentChannel()?.id !== cid) return;
   if (state.messages.some((m) => m.id === message.id)) return;
   const stick = nearBottom();
   state.messages.push(message);
@@ -183,40 +230,70 @@ export async function sendMessage() {
   }
 }
 
+function resetChannelNav(clearSearchState = true) {
+  clearReply();
+  if (clearSearchState) { state.search = ''; state.searchOpen = false; }
+  state.typing.clear();
+  state.typingTimers.forEach((timer) => clearTimeout(timer));
+  state.typingTimers.clear();
+  $('jumpBtn').hidden = true;
+  $('sidebar').classList.remove('mobile-open');
+  onCloseOverlaysHook();
+}
+
+/** Switches UI into Home / Friends list view cleanly. */
+export function selectFriendsHome() {
+  state.homeMode = true;
+  state.dmChannel = null;
+  state.dmPeer = null;
+  state.voiceChannelId = null;
+  resetChannelNav(false);
+  renderAll();
+  loadFriends().then(() => { if (state.homeMode) renderAll(); }).catch(() => {});
+}
+
+/** Opens a 1-on-1 DM channel and loads cached/fresh messages immediately. */
+export async function openDmChannel(channel, peer) {
+  state.homeMode = true;
+  state.voiceChannelId = null;
+  state.dmChannel = channel;
+  state.dmPeer = peer;
+  resetChannelNav();
+  updateComposerPlaceholder();
+  renderAll();
+  await loadMessages();
+}
+
+export async function startDmWithUser(userId, fallbackUser) {
+  try { await openDirectChat(userId, fallbackUser, openDmChannel); } catch (error) { handleError(error); }
+}
+
 export async function selectServer(id) {
-  if (state.currentServerId === id) return;
+  if (!state.homeMode && state.currentServerId === id) return;
+  state.homeMode = false;
+  state.dmChannel = null;
+  state.dmPeer = null;
   state.currentServerId = id;
   const server = currentServer();
   state.currentChannelId = server?.channels.find((c) => c.kind === 'text')?.id || null;
   state.voiceChannelId = null;
-  clearReply();
-  state.search = '';
-  state.searchOpen = false;
-  state.typing.clear();
-  state.typingTimers.forEach((timer) => clearTimeout(timer));
-  state.typingTimers.clear();
-  const channel = currentChannel();
-  $('messageInput').placeholder = channel ? `ส่งข้อความไปที่ #${channel.name}` : 'เลือกช่องก่อนส่งข้อความ';
-  $('jumpBtn').hidden = true;
-  $('sidebar').classList.remove('mobile-open');
-  onCloseOverlaysHook();
+  resetChannelNav();
+  updateComposerPlaceholder();
   renderAll();
   await loadMessages();
 }
 
 export async function selectChannel(id) {
+  state.homeMode = false;
+  state.dmChannel = null;
+  state.dmPeer = null;
   const channel = currentServer()?.channels.find((c) => c.id === id);
   if (!channel) return;
   if (channel.kind === 'voice') {
     state.voiceChannelId = id;
-    state.typing.clear();
-    state.typingTimers.forEach((timer) => clearTimeout(timer));
-    state.typingTimers.clear();
-    $('sidebar').classList.remove('mobile-open');
-    onCloseOverlaysHook();
-    renderSidebar();
-    renderHeader();
-    renderVoicePanel();
+    resetChannelNav(false);
+    renderRail(); renderSidebar(); renderHeader(); renderVoicePanel();
+    renderFriendsStage(renderAll, openDmChannel);
     renderTyping();
     return;
   }
@@ -224,20 +301,8 @@ export async function selectChannel(id) {
   state.voiceChannelId = null;
   state.unread.delete(id);
   state.mentions.delete(id);
-  clearReply();
-  state.search = '';
-  state.searchOpen = false;
-  state.typing.clear();
-  state.typingTimers.forEach((timer) => clearTimeout(timer));
-  state.typingTimers.clear();
-  $('messageInput').placeholder = `ส่งข้อความไปที่ #${channel.name}`;
-  $('jumpBtn').hidden = true;
-  $('sidebar').classList.remove('mobile-open');
-  onCloseOverlaysHook();
-  renderSidebar();
-  renderHeader();
-  renderVoicePanel();
-  renderTyping();
-  renderRail();
+  resetChannelNav();
+  updateComposerPlaceholder();
+  renderAll();
   await loadMessages();
 }

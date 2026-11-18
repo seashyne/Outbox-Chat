@@ -7,6 +7,7 @@ pub mod auth;
 #[cfg(test)]
 mod auth_tests;
 pub mod channels;
+pub mod friends;
 pub mod messages;
 pub mod server_templates;
 pub mod servers;
@@ -17,6 +18,9 @@ pub mod voice;
 
 pub use auth::{bootstrap, login, logout, register};
 pub use channels::{create_channel, delete_channel};
+pub use friends::{
+    accept_friend, list_friends, open_dm, remove_friend, request_friend, update_server_profile,
+};
 pub use messages::{delete_message, list_messages, post_message, toggle_reaction};
 pub use servers::{
     create_server, join_server, leave_server, list_servers, update_member_role, update_server,
@@ -118,11 +122,15 @@ pub(crate) fn sorted_channels(store: &Store, server_id: &str) -> Vec<Channel> {
 pub(crate) fn server_view(store: &Store, user_id: &str, server: &Server) -> ServerView {
     let mut members: Vec<PublicUser> = Vec::new();
     let mut member_roles: std::collections::HashMap<String, Role> = std::collections::HashMap::new();
+    let mut member_profiles = std::collections::HashMap::new();
     if let Some(map) = store.members.get(&server.id) {
         for (id, role) in map {
             if let Some(u) = store.users.get(id) {
                 members.push(u.public());
                 member_roles.insert(id.clone(), *role);
+            }
+            if let Some(prof) = store.server_profiles.get(&format!("{}:{id}", server.id)) {
+                member_profiles.insert(id.clone(), prof.clone());
             }
         }
     }
@@ -141,6 +149,7 @@ pub(crate) fn server_view(store: &Store, user_id: &str, server: &Server) -> Serv
         channels: sorted_channels(store, &server.id),
         members,
         member_roles,
+        member_profiles,
     }
 }
 

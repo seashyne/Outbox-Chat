@@ -45,6 +45,9 @@ export function publicUser(user) {
     display_name: user.display_name,
     color: user.color,
     avatar_url: user.avatar_url || null,
+    banner_url: user.banner_url || null,
+    bio: user.bio || "",
+    status_text: user.status_text || "",
     bot: Boolean(user.bot),
   };
 }
@@ -109,6 +112,7 @@ export function defaultSettings() {
     theme: "dark",
     custom_colors: {},
     status: "online",
+    language: "auto",
   };
 }
 
@@ -148,7 +152,8 @@ export function eventServerId(event) {
   if (
     event.type === "presence" ||
     event.type === "user_update" ||
-    event.type === "user_status"
+    event.type === "user_status" ||
+    event.type === "friend_update"
   ) {
     return null;
   }

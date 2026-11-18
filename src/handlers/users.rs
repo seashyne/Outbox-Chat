@@ -59,6 +59,11 @@ pub async fn update_settings(
             .as_ref()
             .and_then(|s| s.status.clone())
             .or(body.status);
+        let language = body
+            .settings
+            .as_ref()
+            .and_then(|s| s.language.clone())
+            .or(body.language);
 
         if let Some(t) = theme {
             if t.chars().any(|c| c.is_control()) {
@@ -106,6 +111,22 @@ pub async fn update_settings(
                 status_val = Some(s.to_string());
             }
         }
+        if let Some(lang) = language {
+            if lang.chars().any(|c| c.is_control()) {
+                return Err(ApiError::BadRequest(
+                    "language cannot contain control characters".into(),
+                ));
+            }
+            let normalized = lang.trim().to_ascii_lowercase();
+            const ALLOWED_LANGUAGES: &[&str] =
+                &["auto", "th", "en", "ja", "zh", "ko", "es", "fr", "de"];
+            if !ALLOWED_LANGUAGES.contains(&normalized.as_str()) {
+                return Err(ApiError::BadRequest(format!(
+                    "unsupported language '{normalized}'"
+                )));
+            }
+            stored_user.settings.language = normalized;
+        }
         (stored_user.settings.clone(), status_val)
     };
     state.persist();
@@ -120,42 +141,98 @@ pub async fn update_settings(
     })))
 }
 
-/// Validates safe profile image data URLs (PNG/JPEG/WebP up to 64 KB) or `https://` URLs.
-fn parse_avatar_url(raw: &str) -> ApiResult<Option<String>> {
+/// Validates safe image data URLs (PNG/JPEG/WebP up to `max_len`) or `https://` URLs.
+pub(crate) fn parse_image_url(raw: &str, max_len: usize) -> ApiResult<Option<String>> {
     let s = raw.trim();
     if s.is_empty() {
         return Ok(None);
     }
-    if s.len() > 65_536 || s.chars().any(|c| c.is_control() || matches!(c, '<' | '"' | '\'')) {
-        return Err(ApiError::BadRequest("invalid avatar image format or size".into()));
+    if s.len() > max_len || s.chars().any(|c| c.is_control() || matches!(c, '<' | '"' | '\'')) {
+        return Err(ApiError::BadRequest("invalid image format or size".into()));
     }
     let valid_prefix = s.starts_with("data:image/png;base64,")
         || s.starts_with("data:image/jpeg;base64,")
         || s.starts_with("data:image/webp;base64,")
         || s.starts_with("https://");
     if !valid_prefix {
-        return Err(ApiError::BadRequest("invalid avatar image format or size".into()));
+        return Err(ApiError::BadRequest("invalid image format or size".into()));
     }
     Ok(Some(s.to_string()))
 }
 
-/// Updates the authenticated user's display name, avatar color, or picture and broadcasts `user_update`.
+fn validate_handle(raw: &str) -> ApiResult<String> {
+    let trimmed = raw.trim().trim_start_matches('@');
+    let len = trimmed.chars().count();
+    let ok_chars = trimmed
+        .chars()
+        .all(|c| !c.is_control() && !c.is_whitespace() && !matches!(c, '@' | '<' | '>' | '"' | '\''));
+    if !(2..=32).contains(&len) || !ok_chars {
+        return Err(ApiError::BadRequest(
+            "username handle must be 2-32 non-space characters".into(),
+        ));
+    }
+    if trimmed.eq_ignore_ascii_case("outbox-bot") {
+        return Err(ApiError::Conflict("username is reserved".into()));
+    }
+    Ok(trimmed.to_string())
+}
+
+fn clean_profile_text(raw: &str, max: usize, what: &str) -> ApiResult<String> {
+    if raw.chars().any(|c| c.is_control()) {
+        return Err(ApiError::BadRequest(format!("{what} cannot contain control characters")));
+    }
+    let trimmed = raw.trim();
+    if trimmed.chars().count() > max {
+        return Err(ApiError::BadRequest(format!("{what} must be 0-{max} characters")));
+    }
+    Ok(trimmed.to_string())
+}
+
+/// Updates the caller's handle, display name, color, avatar, banner, bio, or status text.
 pub async fn update_profile(
     State(state): State<Arc<AppState>>,
     Auth(user): Auth,
     Json(body): Json<UpdateProfileRequest>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let avatar_patch = match body.avatar_url.as_deref() {
-        Some(raw) => Some(parse_avatar_url(raw)?),
+        Some(raw) => Some(parse_image_url(raw, 65_536)?),
+        None => None,
+    };
+    let banner_patch = match body.banner_url.as_deref() {
+        Some(raw) => Some(parse_image_url(raw, 120_000)?),
+        None => None,
+    };
+    let handle_patch = match body.username.as_deref() {
+        Some(raw) => Some(validate_handle(raw)?),
+        None => None,
+    };
+    let bio_patch = match body.bio.as_deref() {
+        Some(raw) => Some(clean_profile_text(raw, 160, "bio")?),
+        None => None,
+    };
+    let status_patch = match body.status_text.as_deref() {
+        Some(raw) => Some(clean_profile_text(raw, 60, "status text")?),
         None => None,
     };
     let public = {
         let mut store = state.store.write().map_err(|_| ApiError::Internal)?;
+        if let Some(ref handle) = handle_patch {
+            let taken = store
+                .users
+                .values()
+                .any(|u| u.id != user.id && u.username.eq_ignore_ascii_case(handle));
+            if taken {
+                return Err(ApiError::Conflict("username is already taken".into()));
+            }
+        }
         let stored_user = store
             .users
             .get_mut(&user.id)
             .ok_or(ApiError::NotFound("user"))?;
 
+        if let Some(handle) = handle_patch {
+            stored_user.username = handle;
+        }
         if let Some(name) = body.display_name {
             let cleaned = clean_text(&name, 32, "display name")?;
             stored_user.display_name = cleaned;
@@ -171,6 +248,15 @@ pub async fn update_profile(
         }
         if let Some(next_avatar) = avatar_patch {
             stored_user.avatar_url = next_avatar;
+        }
+        if let Some(next_banner) = banner_patch {
+            stored_user.banner_url = next_banner;
+        }
+        if let Some(next_bio) = bio_patch {
+            stored_user.bio = next_bio;
+        }
+        if let Some(next_status) = status_patch {
+            stored_user.status_text = next_status;
         }
         stored_user.public()
     };

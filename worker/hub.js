@@ -54,6 +54,8 @@ export class OutboxHub extends DurableObject {
         this.store = seededStore();
         this.persistStore();
       }
+      this.store.friends = this.store.friends || {};
+      this.store.server_profiles = this.store.server_profiles || {};
       this.voice = map.has("voice") ? JSON.parse(map.get("voice")) : {};
       this.rebuildIndex();
     });
@@ -96,6 +98,10 @@ export class OutboxHub extends DurableObject {
   }
 
   isMember(serverId, userId) {
+    if (typeof serverId === "string" && serverId.startsWith("dm:")) {
+      const parts = serverId.slice(3).split(":");
+      return parts.length === 2 && (parts[0] === userId || parts[1] === userId);
+    }
     return Boolean(this.store.members?.[serverId]?.[userId]);
   }
 
@@ -120,6 +126,11 @@ export class OutboxHub extends DurableObject {
       .filter(Boolean)
       .map(publicUser)
       .sort((a, b) => cmp(a.display_name, b.display_name));
+    const memberProfiles = {};
+    for (const id of Object.keys(memberRolesMap)) {
+      const prof = this.store.server_profiles?.[`${server.id}:${id}`];
+      if (prof) memberProfiles[id] = prof;
+    }
 
     return {
       id: server.id,
@@ -134,6 +145,7 @@ export class OutboxHub extends DurableObject {
       channels: this.sortedChannels(server.id),
       members,
       member_roles: { ...memberRolesMap },
+      member_profiles: memberProfiles,
     };
   }
 

@@ -22,6 +22,14 @@ import {
   handleUpdateServer,
 } from "./handlers_servers.js";
 import {
+  handleAcceptFriend,
+  handleListFriends,
+  handleOpenDm,
+  handleRemoveFriend,
+  handleRequestFriend,
+  handleUpdateServerProfile,
+} from "./handlers_friends.js";
+import {
   handleDeleteMessage,
   handleListMessages,
   handlePostMessage,
@@ -64,6 +72,20 @@ export async function routeHubRequest(hub, request) {
     let m;
     if (method === "PATCH" && (m = path.match(/^\/api\/servers\/([^/]+)$/))) {
       return await handleUpdateServer(hub, request, decodeURIComponent(m[1]));
+    }
+    if (method === "PATCH" && (m = path.match(/^\/api\/servers\/([^/]+)\/profile$/))) {
+      return await handleUpdateServerProfile(hub, request, decodeURIComponent(m[1]));
+    }
+    if (method === "GET" && path === "/api/friends") return handleListFriends(hub, request);
+    if (method === "POST" && path === "/api/friends/request") return await handleRequestFriend(hub, request);
+    if (method === "POST" && (m = path.match(/^\/api\/friends\/([^/]+)\/accept$/))) {
+      return handleAcceptFriend(hub, request, decodeURIComponent(m[1]));
+    }
+    if (method === "DELETE" && (m = path.match(/^\/api\/friends\/([^/]+)$/))) {
+      return handleRemoveFriend(hub, request, decodeURIComponent(m[1]));
+    }
+    if (method === "POST" && (m = path.match(/^\/api\/dm\/([^/]+)$/))) {
+      return handleOpenDm(hub, request, decodeURIComponent(m[1]));
     }
     if (method === "PATCH" && (m = path.match(/^\/api\/servers\/([^/]+)\/members\/([^/]+)\/role$/))) {
       return await handleUpdateMemberRole(

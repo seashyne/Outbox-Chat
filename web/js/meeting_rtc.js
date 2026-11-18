@@ -17,12 +17,15 @@ import { state } from './state.js';
 
 const DEFAULT_ICE_SERVERS = [{ urls: ['stun:stun.cloudflare.com:3478', 'stun:stun.l.google.com:19302'] }];
 let activeIceCfg = { iceServers: DEFAULT_ICE_SERVERS, iceCandidatePoolSize: 2 };
+let iceFetchedAt = 0;
 
 async function refreshIceConfig() {
+  if (Date.now() - iceFetchedAt < 600_000) return;
   try {
     const res = await api('/rtc/ice');
     if (Array.isArray(res?.iceServers) && res.iceServers.length) {
       activeIceCfg = { iceServers: res.iceServers, iceCandidatePoolSize: 2 };
+      iceFetchedAt = Date.now();
     }
   } catch {
     activeIceCfg = { iceServers: DEFAULT_ICE_SERVERS, iceCandidatePoolSize: 2 };
@@ -107,37 +110,40 @@ function closePeer(peerId) {
   hooks.onRemoteStream(peerId, null);
 }
 
-/** Joins `channelId`, starts mono/DTX mic (or listen-only fallback), and connects peers. */
+async function initLocalMic() {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    state.meetingListenOnly = true;
+    state.muted = true;
+    return;
+  }
+  try {
+    localAudioStream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1, sampleRate: 16000 },
+      video: false,
+    });
+    localAudioStream.getAudioTracks().forEach((t) => { t.enabled = !state.muted && !state.deafened; });
+    startVadMonitor(localAudioStream, (speaking) => {
+      if (state.me) {
+        const cur = state.meetingPeers.get(state.me.id) || {};
+        state.meetingPeers.set(state.me.id, { ...cur, speaking });
+      }
+      broadcastMeetingState(speaking);
+      hooks.onStateChange();
+    });
+  } catch {
+    state.meetingListenOnly = true;
+    state.muted = true;
+  }
+}
+
+/** Joins `channelId`, warms ICE + mic in parallel, and connects peers without full DOM churn. */
 export async function joinMeetingRtc(channelId, initialUsers, callbacks) {
   await leaveMeetingRtc();
-  await refreshIceConfig();
   activeChannelId = channelId;
   hooks = { ...hooks, ...callbacks };
   state.meetingListenOnly = false;
 
-  if (navigator.mediaDevices?.getUserMedia) {
-    try {
-      localAudioStream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1, sampleRate: 16000 },
-        video: false,
-      });
-      localAudioStream.getAudioTracks().forEach((t) => { t.enabled = !state.muted && !state.deafened; });
-      startVadMonitor(localAudioStream, (speaking) => {
-        if (state.me) {
-          const cur = state.meetingPeers.get(state.me.id) || {};
-          state.meetingPeers.set(state.me.id, { ...cur, speaking });
-        }
-        broadcastMeetingState(speaking);
-        hooks.onStateChange();
-      });
-    } catch {
-      state.meetingListenOnly = true;
-      state.muted = true;
-    }
-  } else {
-    state.meetingListenOnly = true;
-    state.muted = true;
-  }
+  await Promise.all([refreshIceConfig(), initLocalMic()]);
 
   clearInterval(statsTimer);
   prevStats = { sent: 0, recv: 0, ts: performance.now() };
@@ -145,8 +151,7 @@ export async function joinMeetingRtc(channelId, initialUsers, callbacks) {
     const res = await samplePeersStats(peers, prevStats);
     state.meetingStats = res.stats;
     prevStats = res.nextPrev;
-    hooks.onStateChange();
-  }, 2000);
+  }, 4000);
 
   broadcastMeetingState(false);
   await syncMeetingPeers(initialUsers);

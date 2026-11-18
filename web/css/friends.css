@@ -1,0 +1,32 @@
+/* Outbox Chat — Friends stage, DM rows, profile banner preview, and custom status badges */
+.friends-stage {
+  flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 14px;
+  padding: 20px; background: var(--chat); overflow-y: auto;
+}
+.friends-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.friends-head h2 { margin: 0; font-size: 18px; }
+.friends-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.ftab {
+  min-height: 32px; padding: 5px 12px; border-radius: 8px; font-size: 12.5px; font-weight: 600;
+  background: var(--input); border: 1px solid var(--border); color: var(--muted);
+}
+.ftab.active { background: var(--brand); border-color: var(--brand); color: #fff; }
+.friend-add-bar { display: flex; gap: 8px; }
+.friend-add-bar input { flex: 1; min-width: 0; }
+.friend-add-bar button { flex: 0 0 auto; width: auto; min-width: 112px; }
+.friends-list { display: flex; flex-direction: column; gap: 8px; }
+.friend-card {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 14px; border-radius: 12px; background: var(--elevated); border: 1px solid var(--border);
+}
+.fc-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.fc-meta { display: flex; flex-direction: column; min-width: 0; }
+.fc-meta b { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fc-meta b span { font-size: 12px; font-weight: 500; color: var(--muted); }
+.fc-meta small { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fc-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.pp-bio { font-size: 12.5px; color: var(--muted); line-height: 1.45; margin-top: 4px; white-space: pre-wrap; word-break: break-word; }
+.pp-status-note { font-size: 12px; color: var(--text); margin-top: 2px; }
+.sp-scope-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.sp-scope-row select { max-width: 65%; }
+.sp-hint { font-size: 11.5px; color: var(--muted); margin: -6px 0 8px; }

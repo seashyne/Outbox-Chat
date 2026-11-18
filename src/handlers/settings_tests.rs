@@ -36,14 +36,16 @@ async fn test_user_settings_and_profile_flow() {
         .0;
     assert_eq!(boot.settings.theme, "dark");
     assert_eq!(boot.settings.status, "online");
+    assert_eq!(boot.settings.language, "auto");
     assert!(boot.channels.contains_key("demo"));
     assert!(boot.members.contains_key("demo"));
 
     // 2. GET settings
     let s_res = get_settings(auth.clone()).await.unwrap().0;
     assert_eq!(s_res["settings"]["theme"], "dark");
+    assert_eq!(s_res["settings"]["language"], "auto");
 
-    // 3. PATCH settings (partial update: slate theme + idle status)
+    // 3. PATCH settings (partial update: slate theme + idle status + ja language)
     let mut custom = HashMap::new();
     custom.insert("brand".into(), "#123456".into());
     let patch_res = update_settings(
@@ -54,6 +56,7 @@ async fn test_user_settings_and_profile_flow() {
             theme: Some("slate".into()),
             custom_colors: Some(custom),
             status: Some("idle".into()),
+            language: Some("JA".into()),
         }),
     )
     .await
@@ -61,7 +64,23 @@ async fn test_user_settings_and_profile_flow() {
     .0;
     assert_eq!(patch_res["settings"]["theme"], "slate");
     assert_eq!(patch_res["settings"]["status"], "idle");
+    assert_eq!(patch_res["settings"]["language"], "ja");
     assert_eq!(patch_res["settings"]["custom_colors"]["brand"], "#123456");
+
+    // Invalid language should be rejected with BadRequest
+    let bad_lang = update_settings(
+        State(state.clone()),
+        auth.clone(),
+        Json(UpdateSettingsRequest {
+            settings: None,
+            theme: None,
+            custom_colors: None,
+            status: None,
+            language: Some("zz".into()),
+        }),
+    )
+    .await;
+    assert!(matches!(bad_lang, Err(ApiError::BadRequest(_))));
 
     // 4. PATCH profile
     let sample_png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aF9sAAAAASUVORK5CYII=";
@@ -69,9 +88,13 @@ async fn test_user_settings_and_profile_flow() {
         State(state.clone()),
         auth,
         Json(UpdateProfileRequest {
+            username: None,
             display_name: Some("Bobby".into()),
             color: Some("#abcdef".into()),
             avatar_url: Some(sample_png.into()),
+            banner_url: None,
+            bio: Some("สวัสดีทีม Outbox".into()),
+            status_text: Some("กำลังทำงาน".into()),
         }),
     )
     .await

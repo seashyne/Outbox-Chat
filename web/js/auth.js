@@ -6,6 +6,7 @@
 import { loadBootstrap, loadMessages, renderAll } from './actions.js';
 import { api, handleError } from './api.js';
 import { apiUrl } from './config.js';
+import { getLanguage, renderLanguageOptions, setLanguage, t, translateApiError } from './i18n.js';
 import { closeOverlays } from './menus.js';
 import { leaveMeetingRoom } from './meeting_ui.js';
 import { renderRail } from './render_shell.js';
@@ -21,7 +22,7 @@ function setPasswordVisible(visible) {
   if (!pwd || !toggle) return;
   pwd.type = visible ? 'text' : 'password';
   toggle.setAttribute('aria-pressed', visible ? 'true' : 'false');
-  toggle.setAttribute('aria-label', visible ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน');
+  toggle.setAttribute('aria-label', visible ? t('auth.hidePassword') : t('auth.showPassword'));
   toggle.innerHTML = visible ? ICONS.eyeOff : ICONS.eye;
 }
 
@@ -45,18 +46,31 @@ export function setAuthMode(mode) {
   const pwdInput = $('passwordInput');
   if (pwdInput) {
     pwdInput.autocomplete = isLogin ? 'current-password' : 'new-password';
-    pwdInput.placeholder = isLogin ? 'กรอกรหัสผ่าน' : 'สร้างรหัสผ่าน (อย่างน้อย 8 ตัวอักษร)';
+    pwdInput.placeholder = isLogin ? t('auth.passwordPlaceholder') : t('auth.passwordNewPlaceholder');
   }
   const hint = $('passwordHint');
-  if (hint) hint.textContent = isLogin ? '8-128 ตัวอักษร' : 'อย่างน้อย 8 ตัวอักษร';
+  if (hint) hint.textContent = isLogin ? t('auth.passwordHintLogin') : t('auth.passwordHintRegister');
   const button = $('loginBtn');
-  if (button) button.textContent = isLogin ? 'เข้าสู่ระบบ' : 'สมัครสมาชิก';
+  if (button) button.textContent = isLogin ? t('auth.login') : t('auth.register');
   setPasswordVisible(false);
   clearAuthValidation();
 }
 
-/** Binds auth tabs, password visibility toggle, and semantic form submission. */
+/** Refreshes localized auth controls when display language changes. */
+export function syncAuthTranslations() {
+  renderLanguageOptions($('loginLangSelect'), getLanguage());
+  setAuthMode(authMode);
+}
+
+/** Binds auth tabs, language switcher, password visibility toggle, and semantic form submission. */
 export function bindAuthEvents() {
+  const langSelect = $('loginLangSelect');
+  renderLanguageOptions(langSelect, getLanguage());
+  langSelect?.addEventListener('change', (e) => {
+    setLanguage(e.target.value, { persistLocal: true });
+    state.settings.language = getLanguage();
+    syncAuthTranslations();
+  });
   const form = $('authForm');
   form?.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -95,6 +109,11 @@ export function logout(expired = false) {
   state.me = null;
   state.servers = [];
   state.messages = [];
+  state.messageCache.clear();
+  state.homeMode = false;
+  state.dmChannel = null;
+  state.dmPeer = null;
+  state.friends = { friends: [], incoming: [], outgoing: [] };
   state.voice = {};
   state.voiceChannelId = null;
   state.joinedVoiceChannelId = null;
@@ -109,10 +128,10 @@ export function logout(expired = false) {
   clearTimeout(state.reconnectTimer);
   $('shell').hidden = true;
   $('login').hidden = false;
-  $('loginError').textContent = expired ? 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบอีกครั้ง' : '';
+  $('loginError').textContent = expired ? t('auth.sessionExpired') : '';
   const pwd = $('passwordInput');
   if (pwd) pwd.value = '';
-  setAuthMode('login');
+  syncAuthTranslations();
 }
 
 export async function start() {
@@ -127,7 +146,9 @@ export async function start() {
     return;
   }
   const channel = currentChannel();
-  $('messageInput').placeholder = channel ? `ส่งข้อความไปที่ #${channel.name}` : 'เลือกช่องก่อนส่งข้อความ';
+  $('messageInput').placeholder = channel
+    ? t('composer.placeholderChannel', { name: channel.name })
+    : t('composer.placeholderSelect');
   renderAll();
   requestAnimationFrame(() => {
     const input = $('messageInput');
@@ -147,38 +168,37 @@ export async function doAuth() {
 
   if (!username) {
     userEl.setAttribute('aria-invalid', 'true');
-    $('loginError').textContent = 'กรุณากรอกชื่อผู้ใช้';
+    $('loginError').textContent = t('auth.errNoUsername');
     userEl.focus();
     return;
   }
   if (username.length > 32) {
     userEl.setAttribute('aria-invalid', 'true');
-    $('loginError').textContent = 'ชื่อผู้ใช้ต้องไม่เกิน 32 ตัวอักษร';
+    $('loginError').textContent = t('auth.errUsernameLen');
     userEl.focus();
     return;
   }
   if (!password) {
     pwdEl?.setAttribute('aria-invalid', 'true');
-    $('loginError').textContent = 'กรุณากรอกรหัสผ่าน';
+    $('loginError').textContent = t('auth.errNoPassword');
     pwdEl?.focus();
     return;
   }
   if (password.length < 8) {
     pwdEl?.setAttribute('aria-invalid', 'true');
-    $('loginError').textContent = 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร';
+    $('loginError').textContent = t('auth.errPasswordMin');
     pwdEl?.focus();
     return;
   }
   if (password.length > 128) {
     pwdEl?.setAttribute('aria-invalid', 'true');
-    $('loginError').textContent = 'รหัสผ่านต้องไม่เกิน 128 ตัวอักษร';
+    $('loginError').textContent = t('auth.errPasswordMax');
     pwdEl?.focus();
     return;
   }
 
   button.disabled = true;
-  const actionLabel = authMode === 'login' ? 'เข้าสู่ระบบ' : 'สมัครสมาชิก';
-  button.textContent = `กำลัง${actionLabel}…`;
+  button.textContent = authMode === 'login' ? t('auth.workingLogin') : t('auth.workingRegister');
   try {
     const endpoint = apiUrl(authMode === 'login' ? '/login' : '/register');
     const response = await fetch(endpoint, {
@@ -187,7 +207,10 @@ export async function doAuth() {
       body: JSON.stringify({ username, password }),
     });
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error || `${actionLabel}ไม่สำเร็จ`);
+    if (!response.ok) {
+      const fallback = authMode === 'login' ? t('auth.failedLogin') : t('auth.failedRegister');
+      throw new Error(data.error ? translateApiError(data.error) : fallback);
+    }
     state.token = data.token;
     localStorage.setItem('ob_token', data.token);
     if ($('passwordInput')) $('passwordInput').value = '';
@@ -196,7 +219,7 @@ export async function doAuth() {
     $('loginError').textContent = error.message;
   } finally {
     button.disabled = false;
-    button.textContent = authMode === 'login' ? 'เข้าสู่ระบบ' : 'สมัครสมาชิก';
+    button.textContent = authMode === 'login' ? t('auth.login') : t('auth.register');
   }
 }
 

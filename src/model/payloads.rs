@@ -1,6 +1,8 @@
 //! REST API request/response DTOs and WebSocket event definitions.
 
-use super::{Channel, ChannelKind, Id, PublicUser, Role, ServerRolesConfig, UserSettings};
+use super::{
+    Channel, ChannelKind, Id, PublicUser, Role, ServerProfile, ServerRolesConfig, UserSettings,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -108,6 +110,12 @@ pub struct ServerMemberView {
     pub color: String,
     #[serde(default)]
     pub avatar_url: Option<String>,
+    #[serde(default)]
+    pub banner_url: Option<String>,
+    #[serde(default)]
+    pub bio: String,
+    #[serde(default)]
+    pub status_text: String,
     pub bot: bool,
     pub role: Role,
 }
@@ -122,6 +130,8 @@ pub struct UpdateSettingsRequest {
     pub custom_colors: Option<HashMap<String, String>>,
     #[serde(default)]
     pub status: Option<String>,
+    #[serde(default)]
+    pub language: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -132,16 +142,26 @@ pub struct UserSettingsPatch {
     pub custom_colors: Option<HashMap<String, String>>,
     #[serde(default)]
     pub status: Option<String>,
+    #[serde(default)]
+    pub language: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct UpdateProfileRequest {
+    #[serde(default)]
+    pub username: Option<String>,
     #[serde(default)]
     pub display_name: Option<String>,
     #[serde(default)]
     pub color: Option<String>,
     #[serde(default)]
     pub avatar_url: Option<String>,
+    #[serde(default)]
+    pub banner_url: Option<String>,
+    #[serde(default)]
+    pub bio: Option<String>,
+    #[serde(default)]
+    pub status_text: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -158,6 +178,8 @@ pub struct ServerView {
     pub channels: Vec<Channel>,
     pub members: Vec<PublicUser>,
     pub member_roles: HashMap<Id, Role>,
+    #[serde(default)]
+    pub member_profiles: HashMap<Id, ServerProfile>,
 }
 
 #[derive(Debug, Serialize)]

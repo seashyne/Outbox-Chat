@@ -4,6 +4,7 @@
  */
 
 import { constantTimeEqual, hashPassword, randomSaltHex, utf8Length } from "./crypto.js";
+import { parseImageUrl } from "./handlers_friends.js";
 import {
   AVATAR_COLORS,
   HttpError,
@@ -22,6 +23,7 @@ import {
 
 const ALLOWED_THEMES = ["dark", "light", "slate", "forest", "midnight", "amber", "custom"];
 const ALLOWED_PALETTE_KEYS = ["brand", "sidebar", "chat"];
+const ALLOWED_LANGUAGES = ["auto", "th", "en", "ja", "zh", "ko", "es", "fr", "de"];
 
 /** Registers a new user account and hashes credentials with PBKDF2-HMAC-SHA256. */
 export async function handleRegister(hub, request) {
@@ -40,6 +42,10 @@ export async function handleRegister(hub, request) {
     username,
     display_name: username,
     color: AVATAR_COLORS[utf8Length(username) % AVATAR_COLORS.length],
+    avatar_url: null,
+    banner_url: null,
+    bio: "",
+    status_text: "",
     token,
     bot: false,
     created_at: nowIso(),
@@ -104,7 +110,7 @@ export function handleLogout(hub, request) {
 export function handleBootstrap(hub, request) {
   const currentUser = hub.authenticate(request);
   const me = publicUser(currentUser);
-  const settings = currentUser.settings || defaultSettings();
+  const settings = { ...defaultSettings(), ...(currentUser.settings || {}) };
   const mine = Object.values(hub.store.servers)
     .filter((s) => hub.isMember(s.id, me.id))
     .sort((a, b) => cmp(a.created_at, b.created_at));
@@ -127,6 +133,10 @@ export function handleBootstrap(hub, request) {
           username: u.username,
           display_name: u.display_name,
           color: u.color,
+          avatar_url: u.avatar_url || null,
+          banner_url: u.banner_url || null,
+          bio: u.bio || "",
+          status_text: u.status_text || "",
           bot: Boolean(u.bot),
           role: role || "member",
         });
@@ -152,18 +162,19 @@ export function handleBootstrap(hub, request) {
 /** Returns persisted settings for the authenticated user. */
 export function handleGetSettings(hub, request) {
   const user = hub.authenticate(request);
-  return jsonResponse({ settings: user.settings || defaultSettings() });
+  return jsonResponse({ settings: { ...defaultSettings(), ...(user.settings || {}) } });
 }
 
-/** Applies validated partial updates to theme preset, custom colors, or status. */
+/** Applies validated partial updates to theme preset, custom colors, status, or language. */
 export async function handleUpdateSettings(hub, request) {
   const user = hub.authenticate(request);
   const body = await readJson(request);
-  user.settings = user.settings || defaultSettings();
+  user.settings = { ...defaultSettings(), ...(user.settings || {}) };
 
   const theme = body.settings?.theme ?? body.theme;
   const customColors = body.settings?.custom_colors ?? body.custom_colors;
   const status = body.settings?.status ?? body.status;
+  const language = body.settings?.language ?? body.language;
 
   if (theme !== undefined) {
     if (typeof theme !== "string" || /[\x00-\x1F\x7F]/.test(theme)) {
@@ -197,6 +208,16 @@ export async function handleUpdateSettings(hub, request) {
       statusChanged = true;
     }
   }
+  if (language !== undefined) {
+    if (typeof language !== "string" || /[\x00-\x1F\x7F]/.test(language)) {
+      throw new HttpError(400, "language cannot contain control characters");
+    }
+    const normalizedLang = language.trim().toLowerCase();
+    if (!ALLOWED_LANGUAGES.includes(normalizedLang)) {
+      throw new HttpError(400, "unsupported language");
+    }
+    user.settings.language = normalizedLang;
+  }
 
   hub.persistStore();
   if (statusChanged) {
@@ -205,28 +226,42 @@ export async function handleUpdateSettings(hub, request) {
   return jsonResponse({ settings: user.settings });
 }
 
-function parseAvatarUrl(raw) {
-  if (raw === null || raw === "") return null;
-  if (typeof raw !== "string") throw new HttpError(400, "invalid avatar image format or size");
-  const s = raw.trim();
-  if (!s) return null;
-  if (s.length > 65536 || /[\x00-\x1F\x7F<"']/.test(s)) {
-    throw new HttpError(400, "invalid avatar image format or size");
+function validateHandle(raw) {
+  if (typeof raw !== "string") throw new HttpError(400, "username handle must be 2-32 non-space characters");
+  const trimmed = raw.trim().replace(/^@+/, "");
+  const len = [...trimmed].length;
+  if (len < 2 || len > 32 || /[\x00-\x1F\x7F\s@<>"']/.test(trimmed)) {
+    throw new HttpError(400, "username handle must be 2-32 non-space characters");
   }
-  const ok =
-    s.startsWith("data:image/png;base64,") ||
-    s.startsWith("data:image/jpeg;base64,") ||
-    s.startsWith("data:image/webp;base64,") ||
-    s.startsWith("https://");
-  if (!ok) throw new HttpError(400, "invalid avatar image format or size");
-  return s;
+  if (trimmed.toLowerCase() === "outbox-bot") {
+    throw new HttpError(409, "username is reserved");
+  }
+  return trimmed;
 }
 
-/** Updates display_name, avatar color, or profile image and broadcasts `user_update`. */
+function cleanProfileText(raw, max, what) {
+  if (typeof raw !== "string" || /[\x00-\x1F\x7F]/.test(raw)) {
+    throw new HttpError(400, `${what} cannot contain control characters`);
+  }
+  const trimmed = raw.trim();
+  if ([...trimmed].length > max) throw new HttpError(400, `${what} must be 0-${max} characters`);
+  return trimmed;
+}
+
+/** Updates handle, display_name, color, avatar, banner, bio, or status_text. */
 export async function handleUpdateProfile(hub, request) {
   const user = hub.authenticate(request);
   const body = await readJson(request);
 
+  if (body.username !== undefined) {
+    const handle = validateHandle(body.username);
+    const lower = handle.toLowerCase();
+    const taken = Object.values(hub.store.users).some(
+      (u) => u.id !== user.id && u.username.toLowerCase() === lower
+    );
+    if (taken) throw new HttpError(409, "username is already taken");
+    user.username = handle;
+  }
   if (body.display_name !== undefined) {
     user.display_name = cleanText(body.display_name, 32, "display name");
   }
@@ -236,9 +271,10 @@ export async function handleUpdateProfile(hub, request) {
     }
     user.color = body.color.trim();
   }
-  if (body.avatar_url !== undefined) {
-    user.avatar_url = parseAvatarUrl(body.avatar_url);
-  }
+  if (body.avatar_url !== undefined) user.avatar_url = parseImageUrl(body.avatar_url, 65536);
+  if (body.banner_url !== undefined) user.banner_url = parseImageUrl(body.banner_url, 120000);
+  if (body.bio !== undefined) user.bio = cleanProfileText(body.bio, 160, "bio");
+  if (body.status_text !== undefined) user.status_text = cleanProfileText(body.status_text, 60, "status text");
 
   hub.persistStore();
   hub.emit({ type: "user_update", user: publicUser(user) });

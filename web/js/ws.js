@@ -2,9 +2,11 @@
  * WebSocket gateway connection, automatic reconnect, and realtime event dispatch.
  */
 
-import { appendMessage, loadMessages, refreshMessages } from './actions.js';
+import { appendMessage, loadMessages, openDmChannel, refreshMessages, renderAll } from './actions.js';
 import { setConn, toast } from './api.js';
 import { wsUrl } from './config.js';
+import { loadFriends, renderFriendsStage } from './friends_ui.js';
+import { t } from './i18n.js';
 import { handleMeetingWsEvent } from './meeting_ui.js';
 import { nearBottom, renderMessages, scrollToBottom, updateJumpButton } from './render_chat.js';
 import {
@@ -19,15 +21,29 @@ import {
 } from './render_shell.js';
 import { state } from './state.js';
 
+let connStateKey = 'conn.connecting';
+let connStatusClass = '';
+
+/** Re-applies the localized WebSocket status label when UI language switches. */
+export function syncConnStatusLabel() {
+  setConn(connStatusClass, t(connStateKey));
+}
+
 /** Connects to `/api/ws` with the active bearer token and subscribes to realtime events. */
 export function connectWs() {
   if (!state.token) return;
   clearTimeout(state.reconnectTimer);
-  setConn('', 'กำลังเชื่อมต่อ…');
+  connStateKey = 'conn.connecting';
+  connStatusClass = '';
+  syncConnStatusLabel();
   const socket = new WebSocket(wsUrl(state.token));
   state.ws = socket;
 
-  socket.onopen = () => setConn('ok', 'ออนไลน์ · พร้อมคุยแล้ว');
+  socket.onopen = () => {
+    connStateKey = 'conn.online';
+    connStatusClass = 'ok';
+    syncConnStatusLabel();
+  };
   socket.onmessage = (event) => {
     let payload;
     try { payload = JSON.parse(event.data); } catch { return; }
@@ -35,7 +51,9 @@ export function connectWs() {
   };
   socket.onclose = () => {
     if (state.ws !== socket) return;
-    setConn('bad', 'หลุดการเชื่อมต่อ · กำลังลองใหม่…');
+    connStateKey = 'conn.reconnecting';
+    connStatusClass = 'bad';
+    syncConnStatusLabel();
     state.reconnectTimer = setTimeout(connectWs, 1500);
   };
   socket.onerror = () => socket.close();
@@ -65,7 +83,7 @@ export function handleEvent(event) {
         renderSidebar();
         renderRail();
       }
-      if (mentioned && message.channel_id === state.currentChannelId) toast('มีคนกล่าวถึงคุณในข้อความ');
+      if (mentioned && message.channel_id === state.currentChannelId) toast(t('chat.mentionedToast'));
       break;
     }
     case 'message_update':
@@ -168,6 +186,21 @@ export function handleEvent(event) {
       if (msgChanged) renderMessages();
       break;
     }
+    case 'server_profile_update': {
+      const srv = state.servers.find((s) => s.id === event.server_id);
+      if (srv && event.user_id) {
+        srv.member_profiles = srv.member_profiles || {};
+        srv.member_profiles[event.user_id] = event.profile || {};
+        renderMembers(); renderMessages(); renderVoicePanel(); renderSidebar();
+      }
+      break;
+    }
+    case 'friend_update':
+      loadFriends().then(() => {
+        renderRail();
+        if (state.homeMode) { renderSidebar(); renderFriendsStage(renderAll, openDmChannel); }
+      }).catch(() => {});
+      break;
     case 'user_status':
       if (event.user_id && event.status) {
         state.userStatuses.set(event.user_id, event.status);

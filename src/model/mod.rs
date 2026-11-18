@@ -5,10 +5,12 @@
 
 mod events;
 mod payloads;
+mod social;
 mod store;
 
 pub use events::*;
 pub use payloads::*;
+pub use social::*;
 pub use store::Store;
 
 use chrono::{SecondsFormat, Utc};
@@ -72,6 +74,8 @@ pub struct UserSettings {
     pub custom_colors: HashMap<String, String>,
     #[serde(default = "default_status")]
     pub status: String,
+    #[serde(default = "default_language")]
+    pub language: String,
 }
 
 fn default_theme() -> String {
@@ -82,12 +86,17 @@ fn default_status() -> String {
     "online".to_string()
 }
 
+fn default_language() -> String {
+    "auto".to_string()
+}
+
 impl Default for UserSettings {
     fn default() -> Self {
         Self {
             theme: default_theme(),
             custom_colors: HashMap::new(),
             status: default_status(),
+            language: default_language(),
         }
     }
 }
@@ -102,6 +111,12 @@ pub struct User {
     pub color: String,
     #[serde(default)]
     pub avatar_url: Option<String>,
+    #[serde(default)]
+    pub banner_url: Option<String>,
+    #[serde(default)]
+    pub bio: String,
+    #[serde(default)]
+    pub status_text: String,
     pub token: String,
     pub bot: bool,
     pub created_at: String,
@@ -122,6 +137,9 @@ impl User {
             display_name: self.display_name.clone(),
             color: self.color.clone(),
             avatar_url: self.avatar_url.clone(),
+            banner_url: self.banner_url.clone(),
+            bio: self.bio.clone(),
+            status_text: self.status_text.clone(),
             bot: self.bot,
         }
     }
@@ -136,6 +154,12 @@ pub struct PublicUser {
     pub color: String,
     #[serde(default)]
     pub avatar_url: Option<String>,
+    #[serde(default)]
+    pub banner_url: Option<String>,
+    #[serde(default)]
+    pub bio: String,
+    #[serde(default)]
+    pub status_text: String,
     pub bot: bool,
 }
 

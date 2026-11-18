@@ -1,6 +1,6 @@
 //! Realtime WebSocket server-to-client and client-to-server event payloads.
 
-use super::{Channel, Id, MessageView, PublicUser, Role, Server};
+use super::{Channel, Id, MessageView, PublicUser, Role, Server, ServerProfile};
 use serde::{Deserialize, Serialize};
 
 /// Realtime events pushed from server to connected WebSocket clients.
@@ -39,6 +39,8 @@ pub enum Event {
     },
     UserUpdate { user: PublicUser },
     UserStatus { user_id: Id, status: String },
+    ServerProfileUpdate { server_id: Id, user_id: Id, profile: ServerProfile },
+    FriendUpdate { to: Id },
 }
 
 impl Event {
@@ -56,16 +58,20 @@ impl Event {
             | Event::Typing { server_id, .. }
             | Event::VoiceState { server_id, .. }
             | Event::RtcSignal { server_id, .. }
-            | Event::MeetingState { server_id, .. } => Some(server_id),
+            | Event::MeetingState { server_id, .. }
+            | Event::ServerProfileUpdate { server_id, .. } => Some(server_id),
             Event::ServerCreate { server } | Event::ServerUpdate { server } => Some(&server.id),
-            Event::Presence { .. } | Event::UserUpdate { .. } | Event::UserStatus { .. } => None,
+            Event::Presence { .. }
+            | Event::UserUpdate { .. }
+            | Event::UserStatus { .. }
+            | Event::FriendUpdate { .. } => None,
         }
     }
 
     /// Returns a specific recipient user ID when this event is peer-targeted (e.g. WebRTC signaling).
     pub fn target_user_id(&self) -> Option<&str> {
         match self {
-            Event::RtcSignal { to, .. } => Some(to),
+            Event::RtcSignal { to, .. } | Event::FriendUpdate { to } => Some(to),
             _ => None,
         }
     }

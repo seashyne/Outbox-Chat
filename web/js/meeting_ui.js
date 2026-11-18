@@ -5,9 +5,11 @@
  */
 
 import { api, handleError, toast } from './api.js';
+import { t } from './i18n.js';
 import { cycleScreenPreset, getScreenPreset } from './meeting_sdp.js';
+import { resolveProfile } from './profile_helpers.js';
 import { memberRoleFor, roleMeta } from './server_templates.js';
-import { $, ICONS, avatar, escapeHtml, state, userById } from './state.js';
+import { $, ICONS, avatar, escapeHtml, state } from './state.js';
 
 let rtcMod = null;
 const remoteStreams = new Map();
@@ -64,13 +66,14 @@ export function renderMeetingStage(renderSidebarFn, renderUserFn) {
   const jumpBtn = $('jumpBtn');
   if (!stage) return;
 
-  const focused = Boolean(state.voiceChannelId);
+  const focused = Boolean(state.voiceChannelId) && !state.homeMode;
   const ctx = focused ? resolveViewedVoiceChannel() : null;
   if (!focused || !ctx) {
     stage.hidden = true;
-    msgScroll.hidden = false;
-    typingRow.hidden = false;
-    if (composerWrap) composerWrap.hidden = false;
+    const hideChat = Boolean(state.homeMode && !state.dmChannel);
+    msgScroll.hidden = hideChat;
+    typingRow.hidden = hideChat;
+    if (composerWrap) composerWrap.hidden = hideChat;
     attachMediaNodes();
     return;
   }
@@ -88,7 +91,7 @@ export function renderMeetingStage(renderSidebarFn, renderUserFn) {
   if (jumpBtn) jumpBtn.hidden = true;
 
   const tileHtml = (uid) => {
-    const u = userById(uid);
+    const u = resolveProfile(uid, server);
     const isMe = state.me && uid === state.me.id;
     const peer = state.meetingPeers.get(uid) || {};
     const muted = isMe ? state.muted : Boolean(peer.muted);
@@ -101,17 +104,17 @@ export function renderMeetingStage(renderSidebarFn, renderUserFn) {
     const rMeta = roleMeta(server, memberRoleFor(server, uid));
     return `
       <div class="meeting-tile ${speaking ? 'speaking' : ''} ${hasVideo ? 'has-video' : ''} ${isSpotlight ? 'spotlight' : ''}">
-        ${hasVideo ? `<button type="button" class="mt-zoom-btn" data-action="spotlight-peer" data-id="${escapeHtml(uid)}">${isSpotlight ? 'ย่อจอ' : 'ขยายจอ'}</button>` : ''}
+        ${hasVideo ? `<button type="button" class="mt-zoom-btn" data-action="spotlight-peer" data-id="${escapeHtml(uid)}">${escapeHtml(isSpotlight ? t('meeting.zoomOut') : t('meeting.zoomIn'))}</button>` : ''}
         ${hasVideo
           ? `<video autoplay playsinline ${isMe ? 'muted' : ''} data-video-peer="${escapeHtml(uid)}"></video>`
           : avatar(u, 'lg')}
         <div class="mt-footer">
-          <span class="mt-name" style="color:${hasVideo ? '#fff' : rMeta.color}">${escapeHtml(u.display_name)}${isMe ? ' (คุณ)' : ''}</span>
+          <span class="mt-name" style="color:${hasVideo ? '#fff' : rMeta.color}">${escapeHtml(u.display_name)}${isMe ? ` (${escapeHtml(t('common.you'))})` : ''}</span>
         </div>
         <div class="mt-flags">
-          ${muted ? '<span class="mt-flag muted">ปิดไมค์</span>' : '<span class="mt-flag live">เปิดไมค์</span>'}
-          ${deafened ? '<span class="mt-flag muted">ปิดเสียง</span>' : ''}
-          ${isMe && state.meetingListenOnly ? '<span class="mt-flag">ฟังอย่างเดียว</span>' : ''}
+          ${muted ? `<span class="mt-flag muted">${escapeHtml(t('meeting.micOff'))}</span>` : `<span class="mt-flag live">${escapeHtml(t('meeting.micOn'))}</span>`}
+          ${deafened ? `<span class="mt-flag muted">${escapeHtml(t('meeting.audioOff'))}</span>` : ''}
+          ${isMe && state.meetingListenOnly ? `<span class="mt-flag">${escapeHtml(t('meeting.listenOnly'))}</span>` : ''}
         </div>
       </div>`;
   };
@@ -121,13 +124,13 @@ export function renderMeetingStage(renderSidebarFn, renderUserFn) {
       <div class="meeting-title-wrap">
         <div class="meeting-title">
           ${ICONS.voice} <span>${escapeHtml(channel.name)}</span>
-          <span class="voice-badge">${users.length} คนในห้อง</span>
+          <span class="voice-badge">${escapeHtml(t('meeting.inRoomCount', { count: users.length }))}</span>
         </div>
-        <div class="meeting-sub">${escapeHtml(channel.topic || 'ห้องสนทนาเสียงและแชร์หน้าจอแบบประหยัดข้อมูล')}</div>
+        <div class="meeting-sub">${escapeHtml(channel.topic || t('meeting.defaultSub'))}</div>
       </div>
       <div class="meeting-metrics">
-        <span class="meeting-chip ${saver ? 'saver-on' : ''}">${ICONS.saver} ${saver ? 'โหมดประหยัดเน็ต' : 'โหมดเสียงคมชัด'}</span>
-        ${canCreate ? `<button type="button" class="meeting-create-btn" data-action="create-voice-room">${ICONS.plus} สร้างห้องประชุม</button>` : ''}
+        <span class="meeting-chip ${saver ? 'saver-on' : ''}">${ICONS.saver} ${escapeHtml(saver ? t('voice.dataSaverMode') : t('voice.hdMode'))}</span>
+        ${canCreate ? `<button type="button" class="meeting-create-btn" data-action="create-voice-room">${ICONS.plus} ${escapeHtml(t('meeting.createRoom'))}</button>` : ''}
       </div>
     </div>
     <div class="meeting-body">
@@ -135,26 +138,26 @@ export function renderMeetingStage(renderSidebarFn, renderUserFn) {
         ? `<div class="meeting-grid" id="meetingGrid">${users.map(tileHtml).join('')}</div>`
         : `<div class="meeting-empty">
              ${ICONS.voiceLg}
-             <h3>ห้องประชุม "${escapeHtml(channel.name)}" พร้อมใช้งาน</h3>
-             <p>คุยเสียงและแชร์หน้าจอได้ทันที พร้อมโหมดประหยัดอินเทอร์เน็ต</p>
-             <button type="button" class="meeting-join-cta" data-action="voice-join" data-id="${escapeHtml(channel.id)}">เข้าร่วมห้องประชุมทันที</button>
+             <h3>${escapeHtml(t('meeting.readyTitle', { name: channel.name }))}</h3>
+             <p>${escapeHtml(t('meeting.readyDesc'))}</p>
+             <button type="button" class="meeting-join-cta" data-action="voice-join" data-id="${escapeHtml(channel.id)}">${escapeHtml(t('meeting.joinNow'))}</button>
            </div>`}
     </div>
     <div class="meeting-toolbar-wrap">
-      <div class="meeting-toolbar" role="toolbar" aria-label="ตัวควบคุมห้องประชุม">
+      <div class="meeting-toolbar" role="toolbar" aria-label="${escapeHtml(t('meeting.aria'))}">
         ${inThisRoom ? `
-          <button type="button" class="mt-btn danger" data-action="toggle-mute" aria-pressed="${state.muted ? 'true' : 'false'}" aria-label="ไมโครโฟน">${ICONS.mic} <span>${state.muted ? 'เปิดไมค์' : 'ปิดไมค์'}</span></button>
-          <button type="button" class="mt-btn danger" data-action="toggle-deafen" aria-pressed="${state.deafened ? 'true' : 'false'}" aria-label="เสียงลำโพง">${ICONS.headphones} <span>${state.deafened ? 'เปิดเสียง' : 'ปิดเสียง'}</span></button>
-          <button type="button" class="mt-btn" data-action="toggle-cam" aria-pressed="${state.meetingVideo ? 'true' : 'false'}" aria-label="กล้อง">${ICONS.video} <span>กล้อง</span></button>
-          <button type="button" class="mt-btn" data-action="toggle-screen" aria-pressed="${state.meetingScreen ? 'true' : 'false'}" aria-label="แชร์หน้าจอ">${ICONS.screen} <span>แชร์จอ</span></button>
-          <button type="button" class="mt-btn" data-action="cycle-screen-quality" aria-label="ความชัดแชร์หน้าจอ"><span>ความชัดจอ: ${getScreenPreset().label}</span></button>
-          <button type="button" class="mt-btn saver" data-action="toggle-data-saver" aria-pressed="${saver ? 'true' : 'false'}" aria-label="โหมดประหยัดข้อมูล">${ICONS.saver} <span>ประหยัดข้อมูล</span></button>
-          <button type="button" class="mt-btn" data-action="focus-text-chat">กลับไปหน้าแชท</button>
-          <button type="button" class="mt-btn leave" data-action="voice-leave" data-id="${escapeHtml(channel.id)}">${ICONS.logout} <span>ออกจากห้อง</span></button>
+          <button type="button" class="mt-btn danger" data-action="toggle-mute" aria-pressed="${state.muted ? 'true' : 'false'}" aria-label="${escapeHtml(t('voice.micLabel'))}">${ICONS.mic} <span>${escapeHtml(state.muted ? t('meeting.micOn') : t('meeting.micOff'))}</span></button>
+          <button type="button" class="mt-btn danger" data-action="toggle-deafen" aria-pressed="${state.deafened ? 'true' : 'false'}" aria-label="${escapeHtml(t('voice.speakerLabel'))}">${ICONS.headphones} <span>${escapeHtml(state.deafened ? t('voice.undeafen') : t('voice.deafen'))}</span></button>
+          <button type="button" class="mt-btn" data-action="toggle-cam" aria-pressed="${state.meetingVideo ? 'true' : 'false'}" aria-label="${escapeHtml(t('meeting.cam'))}">${ICONS.video} <span>${escapeHtml(t('meeting.cam'))}</span></button>
+          <button type="button" class="mt-btn" data-action="toggle-screen" aria-pressed="${state.meetingScreen ? 'true' : 'false'}" aria-label="${escapeHtml(t('meeting.screen'))}">${ICONS.screen} <span>${escapeHtml(t('meeting.screen'))}</span></button>
+          <button type="button" class="mt-btn" data-action="cycle-screen-quality" aria-label="${escapeHtml(t('meeting.quality', { label: getScreenPreset().label }))}"><span>${escapeHtml(t('meeting.quality', { label: getScreenPreset().label }))}</span></button>
+          <button type="button" class="mt-btn saver" data-action="toggle-data-saver" aria-pressed="${saver ? 'true' : 'false'}" aria-label="${escapeHtml(t('meeting.saverLabel'))}">${ICONS.saver} <span>${escapeHtml(t('meeting.saverLabel'))}</span></button>
+          <button type="button" class="mt-btn" data-action="focus-text-chat">${escapeHtml(t('meeting.backToChat'))}</button>
+          <button type="button" class="mt-btn leave" data-action="voice-leave" data-id="${escapeHtml(channel.id)}">${ICONS.logout} <span>${escapeHtml(t('meeting.leaveBtn'))}</span></button>
         ` : `
-          <button type="button" class="mt-btn saver" data-action="toggle-data-saver" aria-pressed="${saver ? 'true' : 'false'}">${ICONS.saver} <span>โหมดประหยัดข้อมูล: ${saver ? 'เปิด' : 'ปิด'}</span></button>
-          <button type="button" class="mt-btn join" data-action="voice-join" data-id="${escapeHtml(channel.id)}">${ICONS.voice} <span>เข้าร่วมห้องประชุม</span></button>
-          <button type="button" class="mt-btn" data-action="focus-text-chat">กลับไปหน้าแชท</button>
+          <button type="button" class="mt-btn saver" data-action="toggle-data-saver" aria-pressed="${saver ? 'true' : 'false'}">${ICONS.saver} <span>${escapeHtml(t('meeting.saverToggle', { state: saver ? t('meeting.on') : t('meeting.off') }))}</span></button>
+          <button type="button" class="mt-btn join" data-action="voice-join" data-id="${escapeHtml(channel.id)}">${ICONS.voice} <span>${escapeHtml(t('meeting.joinBtn'))}</span></button>
+          <button type="button" class="mt-btn" data-action="focus-text-chat">${escapeHtml(t('meeting.backToChat'))}</button>
         `}
       </div>
     </div>`;
@@ -164,31 +167,47 @@ export function renderMeetingStage(renderSidebarFn, renderUserFn) {
   void renderUserFn;
 }
 
-/** Joins voice room via REST + dynamically initializes WebRTC P2P session. */
+/** Joins voice room optimistically and runs signaling/mic/ICE initialization in parallel. */
 export async function joinMeetingRoom(channelId, refreshUi) {
   if (!state.ws || state.ws.readyState !== 1) {
-    toast('กำลังเชื่อมต่ออยู่ กรุณารอสักครู่แล้วลองใหม่', 'err');
+    toast(t('meeting.connectingToast'), 'err');
     return;
   }
-  const res = await api(`/channels/${encodeURIComponent(channelId)}/voice/join`, { method: 'POST' });
-  if (res.users.length) state.voice[channelId] = res.users;
+  const prevJoined = state.joinedVoiceChannelId;
+  state.homeMode = false;
   state.voiceChannelId = channelId;
   state.joinedVoiceChannelId = channelId;
+  state.voice[channelId] = state.voice[channelId] || [];
+  if (state.me && !state.voice[channelId].includes(state.me.id)) {
+    state.voice[channelId].push(state.me.id);
+  }
   refreshUi();
 
-  const rtc = await getRtc();
-  await rtc.joinMeetingRtc(channelId, res.users, {
-    onRemoteStream: (peerId, stream) => {
-      if (stream) remoteStreams.set(peerId, stream);
-      else remoteStreams.delete(peerId);
-      refreshUi();
-    },
-    onLocalVideo: (stream) => { localStreamRef = stream; refreshUi(); },
-    onStateChange: () => refreshUi(),
-  });
-  if (state.meetingListenOnly) toast('เข้าร่วมในโหมดฟังอย่างเดียว (ไม่พบไมค์)', 'ok');
-  else toast('เข้าร่วมห้องประชุมแล้ว (โหมดประหยัดข้อมูล)', 'ok');
-  refreshUi();
+  try {
+    const [res, rtc] = await Promise.all([
+      api(`/channels/${encodeURIComponent(channelId)}/voice/join`, { method: 'POST' }),
+      getRtc(),
+    ]);
+    if (res.users.length) state.voice[channelId] = res.users;
+    refreshUi();
+
+    await rtc.joinMeetingRtc(channelId, res.users, {
+      onRemoteStream: (peerId, stream) => {
+        if (stream) remoteStreams.set(peerId, stream);
+        else remoteStreams.delete(peerId);
+        refreshUi();
+      },
+      onLocalVideo: (stream) => { localStreamRef = stream; refreshUi(); },
+      onStateChange: () => refreshUi(),
+    });
+    if (state.meetingListenOnly) toast(t('meeting.joinedListenOnly'), 'ok');
+    else toast(t('meeting.joinedToast'), 'ok');
+    refreshUi();
+  } catch (error) {
+    state.joinedVoiceChannelId = prevJoined || null;
+    refreshUi();
+    throw error;
+  }
 }
 
 /** Leaves active voice room and cleans up WebRTC streams immediately. */
@@ -233,7 +252,7 @@ export async function updateMeetingControl(kind, refreshUi) {
   if (kind === 'screen-quality') {
     const preset = cycleScreenPreset();
     if (rtcMod) await rtcMod.updateScreenQuality();
-    toast(`ความชัดแชร์หน้าจอ: ${preset.label}`, 'ok');
+    toast(t('meeting.qualityToast', { label: preset.label }), 'ok');
     refreshUi();
     return;
   }
@@ -242,13 +261,13 @@ export async function updateMeetingControl(kind, refreshUi) {
     try {
       await rtc.toggleMeetingVideo(kind === 'cam' ? 'camera' : 'screen');
     } catch {
-      toast(kind === 'cam' ? 'ไม่สามารถเปิดกล้องได้ กรุณาตรวจสอบสิทธิ์กล้อง' : 'ยกเลิกหรือไม่สามารถแชร์หน้าจอได้', 'err');
+      toast(kind === 'cam' ? t('meeting.camErr') : t('meeting.screenErr'), 'err');
       refreshUi();
     }
   } else if (kind === 'data-saver') {
     state.meetingDataSaver = !state.meetingDataSaver;
     if (state.joinedVoiceChannelId) await rtc.syncLocalMediaSettings();
-    toast(state.meetingDataSaver ? 'เปิดโหมดประหยัดเน็ตแล้ว' : 'เปลี่ยนเป็นโหมดเสียงคมชัดแล้ว', 'ok');
+    toast(state.meetingDataSaver ? t('meeting.saverOnToast') : t('meeting.saverOffToast'), 'ok');
     refreshUi();
   } else if (state.joinedVoiceChannelId) {
     await rtc.syncLocalMediaSettings();
