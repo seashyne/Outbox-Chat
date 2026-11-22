@@ -21,7 +21,7 @@ import { handleError, setUnauthorizedHandler, toast } from './js/api.js';
 import { bindAuthEvents, logout, start, toggleTheme } from './js/auth.js';
 import { bindMessageEvents } from './js/composer.js';
 import { acceptFriendRequest, openDirectChat, sendFriendRequest } from './js/friends_ui.js';
-import { setLanguage } from './js/i18n.js';
+import { applyStaticTranslations } from './js/i18n.js';
 import { joinMeetingRoom, leaveMeetingRoom, updateMeetingControl } from './js/meeting_ui.js';
 import {
   closeOverlays,
@@ -272,6 +272,7 @@ document.addEventListener('keydown', (e) => {
 });
 window.addEventListener('resize', () => { if (state.popover) closeOverlays(); });
 
+applyStaticTranslations(document);
 autoGrow();
-if (state.token) setLanguage('th').then(start);
+if (state.token) start();
 

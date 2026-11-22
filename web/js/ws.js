@@ -19,7 +19,7 @@ import {
   renderVoiceBar,
   renderVoicePanel,
 } from './render_shell.js';
-import { state } from './state.js';
+import { currentChannel, state } from './state.js';
 
 let connStateKey = 'conn.connecting';
 let connStatusClass = '';
@@ -69,26 +69,28 @@ export function handleEvent(event) {
       break;
     case 'message_create': {
       const message = event.message;
+      const activeCid = currentChannel()?.id;
       const mentioned = state.me && (
         message.content.toLowerCase().includes(`@${state.me.username.toLowerCase()}`) ||
         message.content.toLowerCase().includes(`@${state.me.display_name.toLowerCase()}`)
       );
-      if (message.channel_id === state.currentChannelId && !state.searchOpen) {
+      if (message.channel_id === activeCid && !state.searchOpen) {
         const stick = nearBottom();
         appendMessage(message);
         if (!stick) updateJumpButton();
       } else {
+        appendMessage(message);
         state.unread.add(message.channel_id);
         if (mentioned) state.mentions.add(message.channel_id);
         renderSidebar();
         renderRail();
       }
-      if (mentioned && message.channel_id === state.currentChannelId) toast(t('chat.mentionedToast'));
+      if (mentioned && message.channel_id === activeCid) toast(t('chat.mentionedToast'));
       break;
     }
     case 'message_update':
       if (state.me && event.actor_id === state.me.id) break;
-      if (event.message.channel_id === state.currentChannelId && !state.searchOpen) refreshMessages();
+      if (event.message.channel_id === currentChannel()?.id && !state.searchOpen) refreshMessages();
       break;
     case 'message_delete': {
       const stick = nearBottom();
@@ -212,7 +214,7 @@ export function handleEvent(event) {
       }
       break;
     case 'typing':
-      if (event.channel_id !== state.currentChannelId || !state.me || event.user.id === state.me.id) break;
+      if (event.channel_id !== currentChannel()?.id || !state.me || event.user.id === state.me.id) break;
       state.typing.set(event.user.id, event.user.display_name);
       renderTyping();
       clearTimeout(state.typingTimers.get(event.user.id));

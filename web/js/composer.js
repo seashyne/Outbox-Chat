@@ -48,9 +48,10 @@ export function bindMessageEvents() {
   $('messageInput').addEventListener('input', () => {
     autoGrow();
     const now = Date.now();
-    if (now - state.lastTypingSent > 1800 && state.ws?.readyState === 1 && currentChannel()) {
+    const activeChannel = currentChannel();
+    if (now - state.lastTypingSent > 1800 && state.ws?.readyState === 1 && activeChannel) {
       state.lastTypingSent = now;
-      state.ws.send(JSON.stringify({ type: 'typing', channel_id: state.currentChannelId }));
+      state.ws.send(JSON.stringify({ type: 'typing', channel_id: activeChannel.id }));
     }
   });
   $('messageInput').addEventListener('keydown', (e) => {
