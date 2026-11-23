@@ -180,33 +180,13 @@ pub struct ServerRolesConfig {
     pub allow_member_create_channel: bool,
 }
 
-fn default_owner_label() -> String {
-    "เจ้าของเซิร์ฟเวอร์".to_string()
-}
-
-fn default_admin_label() -> String {
-    "ผู้ดูแลระบบ".to_string()
-}
-
-fn default_member_label() -> String {
-    "สมาชิก".to_string()
-}
-
-fn default_admin_color() -> String {
-    "#f59e0b".to_string()
-}
-
-fn default_member_color() -> String {
-    "#94a3b8".to_string()
-}
-
-fn default_accent_color() -> String {
-    "#5865f2".to_string()
-}
-
-fn default_true() -> bool {
-    true
-}
+fn default_owner_label() -> String { "เจ้าของเซิร์ฟเวอร์".into() }
+fn default_admin_label() -> String { "ผู้ดูแลระบบ".into() }
+fn default_member_label() -> String { "สมาชิก".into() }
+fn default_admin_color() -> String { "#f59e0b".into() }
+fn default_member_color() -> String { "#94a3b8".into() }
+fn default_accent_color() -> String { "#5865f2".into() }
+fn default_true() -> bool { true }
 
 impl Default for ServerRolesConfig {
     fn default() -> Self {
@@ -264,6 +244,8 @@ pub struct Message {
     /// Clean reaction token -> user IDs that toggled it on.
     #[serde(default)]
     pub reactions: HashMap<String, Vec<Id>>,
+    #[serde(default)]
+    pub attachments: Vec<Attachment>,
 }
 
 /// Compact quoted snippet of a replied-to message.
@@ -283,7 +265,7 @@ pub struct ReactionView {
     pub users: Vec<Id>,
 }
 
-/// Hydrated message payload sent to clients with resolved author, reply, and reactions.
+/// Hydrated message payload sent to clients with resolved author, reply, reactions, and attachments.
 #[derive(Clone, Debug, Serialize)]
 pub struct MessageView {
     pub id: Id,
@@ -294,4 +276,6 @@ pub struct MessageView {
     pub edited_at: Option<String>,
     pub reply: Option<ReplyPreview>,
     pub reactions: Vec<ReactionView>,
+    #[serde(default)]
+    pub attachments: Vec<Attachment>,
 }

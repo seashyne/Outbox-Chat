@@ -38,7 +38,7 @@ pub async fn voice_join(
             .cloned()
             .ok_or(ApiError::NotFound("channel"))?;
         require_member(&store, &channel.server_id, &user.id)?;
-        if channel.kind != ChannelKind::Voice {
+        if channel.kind != ChannelKind::Voice && !channel.id.starts_with("dm:") {
             return Err(ApiError::BadRequest("not a voice channel".into()));
         }
         channel.server_id

@@ -53,11 +53,12 @@ export function getModalHandler() {
 }
 
 /** Binds modal submit, cancel, directory actions, and backdrop dismissal. */
-export function bindModalEvents(onCreateServer) {
+export function bindModalEvents(onCreateServer, onJoinInvite) {
   $('modalFields').addEventListener('click', (e) => {
     const join = e.target.closest('[data-join]');
     if (join) joinFromDirectory(join.dataset.join);
     if (e.target.id === 'directoryCreate') { closeModal(); onCreateServer?.(); }
+    if (e.target.id === 'directoryJoinInvite') { closeModal(); onJoinInvite?.(); }
   });
   $('modalCancel').addEventListener('click', closeModal);
   bindBackdropDismiss($('modalBackdrop'), closeModal);
@@ -124,7 +125,10 @@ export async function openDirectory() {
       desc: t('modal.dirDesc'),
       hideSubmit: true,
       html: `<div style="max-height:260px;overflow-y:auto">${rows || escapeHtml(t('modal.dirEmpty'))}</div>
-             <button class="ghost-btn" id="directoryCreate" style="margin-top:12px;padding-left:0">${escapeHtml(t('modal.dirCreate'))}</button>`,
+             <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:12px">
+               <button class="ghost-btn" id="directoryCreate" style="padding-left:0">${escapeHtml(t('modal.dirCreate'))}</button>
+               <button class="ghost-btn" id="directoryJoinInvite" style="padding-left:0">${escapeHtml(t('invite.joinByCodeBtn'))}</button>
+             </div>`,
     });
   } catch (error) { handleError(error); }
 }

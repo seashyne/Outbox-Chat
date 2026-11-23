@@ -8,6 +8,7 @@ import { wsUrl } from './config.js';
 import { loadFriends, renderFriendsStage } from './friends_ui.js';
 import { t } from './i18n.js';
 import { handleMeetingWsEvent } from './meeting_ui.js';
+import { playNotifyChime, renderDmCallBanner, sendDesktopNotification } from './notify.js';
 import { nearBottom, renderMessages, scrollToBottom, updateJumpButton } from './render_chat.js';
 import {
   renderHeader,
@@ -86,6 +87,16 @@ export function handleEvent(event) {
         renderRail();
       }
       if (mentioned && message.channel_id === activeCid) toast(t('chat.mentionedToast'));
+      if (state.me && message.author?.id !== state.me.id) {
+        const isDm = message.channel_id.startsWith('dm:');
+        if (isDm || mentioned) {
+          playNotifyChime('message');
+          const title = isDm
+            ? t('notify.newDmTitle', { name: message.author?.display_name || t('friends.dmHeader') })
+            : t('notify.mentionTitle', { name: message.author?.display_name || t('common.member') });
+          sendDesktopNotification(title, message.content || t('chat.attachFileMenu'));
+        }
+      }
       break;
     }
     case 'message_update':
@@ -197,12 +208,19 @@ export function handleEvent(event) {
       }
       break;
     }
-    case 'friend_update':
+    case 'friend_update': {
+      const prevIn = (state.friends?.incoming || []).length;
       loadFriends().then(() => {
         renderRail();
         if (state.homeMode) { renderSidebar(); renderFriendsStage(renderAll, openDmChannel); }
+        if ((state.friends?.incoming || []).length > prevIn) {
+          playNotifyChime('friend');
+          toast(t('notify.friendReqToast'), 'ok');
+          sendDesktopNotification(t('notify.friendReqTitle'), t('notify.friendReqToast'));
+        }
       }).catch(() => {});
       break;
+    }
     case 'user_status':
       if (event.user_id && event.status) {
         state.userStatuses.set(event.user_id, event.status);
@@ -233,6 +251,18 @@ export function handleEvent(event) {
       renderSidebar();
       renderVoicePanel();
       renderVoiceBar();
+      if (event.channel_id?.startsWith('dm:')) {
+        const activeUsers = event.users || [];
+        if (activeUsers.length > 0 && state.me && !activeUsers.includes(state.me.id) && state.joinedVoiceChannelId !== event.channel_id) {
+          const peer = state.friends?.friends?.find((f) => f.dm_channel_id === event.channel_id)?.user
+            || (state.dmChannel?.id === event.channel_id ? state.dmPeer : null);
+          renderDmCallBanner({ channelId: event.channel_id, peer });
+          playNotifyChime('call');
+          sendDesktopNotification(t('dm.incomingCall', { name: peer?.display_name || t('friends.dmHeader') }), t('dm.voiceCall'));
+        } else {
+          renderDmCallBanner(null);
+        }
+      }
       handleMeetingWsEvent(event, () => { renderSidebar(); renderVoicePanel(); renderVoiceBar(); });
       break;
     case 'rtc_signal':

@@ -117,7 +117,10 @@ export function renderSidebar() {
     <button class="server-name" data-action="server-menu" title="${escapeHtml(server.description || t('sidebar.serverMenu'))}" aria-label="${escapeHtml(t('sidebar.serverMenu'))}">
       ${escapeHtml(server.name)} <span class="caret">${ICONS.caret}</span>
     </button>
-    ${canCreate ? `<button class="icon-btn" data-action="create-channel" title="${escapeHtml(t('sidebar.addChannel'))}" aria-label="${escapeHtml(t('sidebar.addChannel'))}">${ICONS.plus}</button>` : ''}`;
+    <span style="display:flex;gap:2px">
+      <button class="icon-btn" data-action="server-invite" title="${escapeHtml(t('menu.inviteFriends'))}" aria-label="${escapeHtml(t('menu.inviteFriends'))}">${ICONS.link}</button>
+      ${canCreate ? `<button class="icon-btn" data-action="create-channel" title="${escapeHtml(t('sidebar.addChannel'))}" aria-label="${escapeHtml(t('sidebar.addChannel'))}">${ICONS.plus}</button>` : ''}
+    </span>`;
 
   const textChannels = server.channels.filter((c) => c.kind === 'text');
   const voiceChannels = server.channels.filter((c) => c.kind === 'voice');
@@ -192,7 +195,12 @@ export function renderHeader() {
       <button class="icon-btn mobile-only" data-action="toggle-sidebar" title="${escapeHtml(t('header.channels'))}" aria-label="${escapeHtml(t('header.openChannels'))}" aria-controls="sidebar" aria-expanded="${sidebarOpen ? 'true' : 'false'}">${ICONS.menu}</button>
       <span class="big-hash">@</span>
       <span class="title">${escapeHtml(peer ? peer.display_name : t('friends.dmHeader'))}</span>
-      <span class="topic">${escapeHtml(peer ? t('friends.dmTopic', { username: peer.username }) : t('friends.manageHint'))}</span>`;
+      <span class="topic">${escapeHtml(peer ? t('friends.dmTopic', { username: peer.username }) : t('friends.manageHint'))}</span>
+      <span class="spacer"></span>
+      ${peer && state.dmChannel ? `<div class="header-actions">
+        <button class="icon-btn" data-action="dm-call-voice" title="${escapeHtml(t('dm.voiceCall'))}" aria-label="${escapeHtml(t('dm.voiceCall'))}">${ICONS.phone}</button>
+        <button class="icon-btn" data-action="dm-call-video" title="${escapeHtml(t('dm.videoCall'))}" aria-label="${escapeHtml(t('dm.videoCall'))}">${ICONS.video}</button>
+      </div>` : ''}`;
     return;
   }
   const channel = state.voiceChannelId

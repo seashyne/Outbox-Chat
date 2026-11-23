@@ -7,8 +7,10 @@ import { loadBootstrap, loadMessages, renderAll } from './actions.js';
 import { api, handleError } from './api.js';
 import { apiUrl } from './config.js';
 import { getLanguage, renderLanguageOptions, setLanguage, t, translateApiError } from './i18n.js';
+import { consumePendingInvite } from './invites_ui.js';
 import { closeOverlays } from './menus.js';
 import { leaveMeetingRoom } from './meeting_ui.js';
+import { renderDmCallBanner } from './notify.js';
 import { renderRail } from './render_shell.js';
 import { closeSettingsModal } from './settings.js';
 import { $, ICONS, applyTheme, currentChannel, state } from './state.js';
@@ -124,6 +126,7 @@ export function logout(expired = false) {
   state.replyTo = null;
   closeOverlays();
   closeSettingsModal(false);
+  renderDmCallBanner(null);
   if (state.ws) { state.ws.onclose = null; state.ws.close(); }
   clearTimeout(state.reconnectTimer);
   $('shell').hidden = true;
@@ -156,6 +159,7 @@ export async function start() {
   });
   await loadMessages();
   connectWs();
+  await consumePendingInvite();
 }
 
 export async function doAuth() {

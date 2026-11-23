@@ -50,9 +50,20 @@ function attachMediaNodes() {
 function resolveViewedVoiceChannel() {
   const id = state.voiceChannelId || state.joinedVoiceChannelId;
   if (!id) return null;
+  if (id.startsWith('dm:')) {
+    const friendPeer = state.friends?.friends?.find((f) => f.dm_channel_id === id)?.user;
+    const peer = (state.dmChannel?.id === id ? state.dmPeer : null) || friendPeer;
+    return {
+      isDm: true,
+      channel: state.dmChannel?.id === id
+        ? state.dmChannel
+        : { id, name: peer?.display_name || t('friends.dmHeader'), kind: 'voice', topic: '' },
+      server: { id, name: t('friends.dmHeader'), members: [state.me, peer].filter(Boolean), roles_config: {}, member_profiles: {} },
+    };
+  }
   for (const s of state.servers) {
     const ch = s.channels.find((c) => c.id === id && c.kind === 'voice');
-    if (ch) return { channel: ch, server: s };
+    if (ch) return { isDm: false, channel: ch, server: s };
   }
   return null;
 }
@@ -66,7 +77,8 @@ export function renderMeetingStage(renderSidebarFn, renderUserFn) {
   const jumpBtn = $('jumpBtn');
   if (!stage) return;
 
-  const focused = Boolean(state.voiceChannelId) && !state.homeMode;
+  const isDmView = Boolean(state.voiceChannelId?.startsWith('dm:'));
+  const focused = Boolean(state.voiceChannelId) && (!state.homeMode || isDmView);
   const ctx = focused ? resolveViewedVoiceChannel() : null;
   if (!focused || !ctx) {
     stage.hidden = true;
@@ -78,11 +90,11 @@ export function renderMeetingStage(renderSidebarFn, renderUserFn) {
     return;
   }
 
-  const { channel, server } = ctx;
+  const { isDm, channel, server } = ctx;
   const users = state.voice[channel.id] || [];
   const inThisRoom = Boolean(state.me && state.joinedVoiceChannelId === channel.id && users.includes(state.me.id));
   const saver = Boolean(state.meetingDataSaver);
-  const canCreate = ['owner', 'admin'].includes(server.role) || server.roles_config?.allow_member_create_channel !== false;
+  const canCreate = !isDm && (['owner', 'admin'].includes(server.role) || server.roles_config?.allow_member_create_channel !== false);
 
   stage.hidden = false;
   msgScroll.hidden = true;
@@ -174,7 +186,7 @@ export async function joinMeetingRoom(channelId, refreshUi) {
     return;
   }
   const prevJoined = state.joinedVoiceChannelId;
-  state.homeMode = false;
+  state.homeMode = channelId.startsWith('dm:');
   state.voiceChannelId = channelId;
   state.joinedVoiceChannelId = channelId;
   state.voice[channelId] = state.voice[channelId] || [];
@@ -244,6 +256,16 @@ export async function handleMeetingWsEvent(event, refreshUi) {
       data_saver: event.data_saver,
     });
     refreshUi();
+  }
+}
+
+/** Starts a 1-on-1 DM voice or video call in the active DM channel. */
+export async function startDmCall(withVideo, refreshUi) {
+  const cid = state.dmChannel?.id;
+  if (!cid) return;
+  await joinMeetingRoom(cid, refreshUi);
+  if (withVideo && state.joinedVoiceChannelId === cid && !state.meetingVideo) {
+    await updateMeetingControl('cam', refreshUi);
   }
 }
 

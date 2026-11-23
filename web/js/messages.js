@@ -3,6 +3,7 @@
  */
 
 import { api, handleError } from './api.js';
+import { clearPendingAttachments, getPendingAttachments } from './attachments.js';
 import { autoGrow, nearBottom, renderMessages, scrollToBottom } from './render_chat.js';
 import { renderReplyBar } from './render_shell.js';
 import { $, currentChannel, state } from './state.js';
@@ -101,18 +102,24 @@ export function appendMessage(message) {
   if (stick) scrollToBottom();
 }
 
-/** Sends composer input to the active text channel or 1-on-1 DM channel. */
+/** Sends composer input (text and/or queued attachments) to active channel or DM. */
 export async function sendMessage() {
   const input = $('messageInput');
   const content = input.value.trim();
+  const attachments = getPendingAttachments();
   const channel = currentChannel();
-  if (!content || !channel || channel.kind !== 'text') return;
+  if ((!content && !attachments.length) || !channel || channel.kind !== 'text') return;
   try {
     const message = await api(`/channels/${encodeURIComponent(channel.id)}/messages`, {
       method: 'POST',
-      body: JSON.stringify({ content, reply_to: state.replyTo ? state.replyTo.id : null }),
+      body: JSON.stringify({
+        content,
+        reply_to: state.replyTo ? state.replyTo.id : null,
+        attachments,
+      }),
     });
     input.value = '';
+    clearPendingAttachments();
     clearReply();
     autoGrow();
     appendMessage(message); // WS echo is de-duplicated by id

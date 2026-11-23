@@ -83,3 +83,78 @@ pub fn friend_pair_key(a: &str, b: &str) -> String {
 pub fn dm_channel_id(a: &str, b: &str) -> String {
     format!("dm:{}", friend_pair_key(a, b))
 }
+
+/// Persisted image or file attachment included inside a chat or DM message.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Attachment {
+    pub id: Id,
+    pub name: String,
+    pub mime: String,
+    pub size: usize,
+    pub data_url: String,
+}
+
+/// Client upload input for a message attachment.
+#[derive(Clone, Debug, Deserialize)]
+pub struct AttachmentInput {
+    pub name: String,
+    pub mime: String,
+    #[serde(default)]
+    pub size: Option<usize>,
+    pub data_url: String,
+}
+
+/// Server invite link with optional expiry timestamp and maximum use limit.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ServerInvite {
+    pub code: String,
+    pub server_id: Id,
+    pub created_by: Id,
+    pub created_at: String,
+    #[serde(default)]
+    pub expires_at: Option<String>,
+    #[serde(default)]
+    pub max_uses: Option<u32>,
+    #[serde(default)]
+    pub uses: u32,
+}
+
+/// Request payload for `POST /api/servers/{id}/invites`.
+#[derive(Debug, Deserialize, Default)]
+pub struct CreateInviteRequest {
+    #[serde(default)]
+    pub expires_in_hours: Option<f64>,
+    #[serde(default)]
+    pub max_uses: Option<u32>,
+}
+
+/// Detailed invite view returned to server members.
+#[derive(Clone, Debug, Serialize)]
+pub struct InviteView {
+    pub code: String,
+    pub server_id: Id,
+    pub created_by: Id,
+    pub creator_name: String,
+    pub created_at: String,
+    pub expires_at: Option<String>,
+    pub max_uses: Option<u32>,
+    pub uses: u32,
+    pub expired: bool,
+    pub exhausted: bool,
+}
+
+/// Public invite preview returned by `GET /api/invites/{code}`.
+#[derive(Clone, Debug, Serialize)]
+pub struct InvitePreview {
+    pub code: String,
+    pub server_id: Id,
+    pub server_name: String,
+    pub server_icon: String,
+    pub server_description: String,
+    pub accent_color: String,
+    pub member_count: usize,
+    pub expires_at: Option<String>,
+    pub max_uses: Option<u32>,
+    pub uses: u32,
+    pub valid: bool,
+}

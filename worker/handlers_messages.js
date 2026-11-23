@@ -14,6 +14,42 @@ import {
 } from "./utils.js";
 
 const ALLOWED_REACTIONS = ["+1", "Like", "Ack", "Done", "Help", "Idea"];
+const ALLOWED_MIMES = [
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/gif",
+  "application/pdf",
+  "text/plain",
+  "application/zip",
+  "application/json",
+];
+
+function validateAttachments(raw) {
+  if (raw === undefined || raw === null) return [];
+  if (!Array.isArray(raw)) throw new HttpError(400, "attachments must be an array");
+  if (raw.length > 4) throw new HttpError(400, "maximum 4 attachments per message");
+  const out = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") throw new HttpError(400, "invalid attachment");
+    const mime = String(item.mime || "").trim().toLowerCase();
+    if (!ALLOWED_MIMES.includes(mime)) throw new HttpError(400, `unsupported file type: ${mime}`);
+    const name = cleanText(item.name, 80, "attachment name");
+    if (name.includes("/") || name.includes("\\")) throw new HttpError(400, "invalid attachment filename");
+    const data = String(item.data_url || "").trim();
+    const prefix = `data:${mime};base64,`;
+    if (!data.startsWith(prefix) || data.length > 620000 || /[\x00-\x20"<]/.test(data)) {
+      throw new HttpError(400, "invalid or oversized attachment data");
+    }
+    const approxBytes = Math.floor(((data.length - prefix.length) * 3) / 4);
+    if (approxBytes > 460000) throw new HttpError(400, "attachment exceeds 450 KB limit");
+    const size = typeof item.size === "number" && Number.isFinite(item.size) && item.size >= 0
+      ? Math.min(Math.floor(item.size), 460000)
+      : approxBytes;
+    out.push({ id: newId(), name, mime, size, data_url: data });
+  }
+  return out;
+}
 
 /** Fetches paginated message history for a text channel. */
 export function handleListMessages(hub, request, channelId, url) {
@@ -54,7 +90,14 @@ export function handleListMessages(hub, request, channelId, url) {
 export async function handlePostMessage(hub, request, channelId) {
   const user = hub.authenticate(request);
   const body = await readJson(request);
-  const content = cleanText(body.content, 2000, "message");
+  const attachments = validateAttachments(body.attachments);
+  const rawContent = typeof body.content === "string" ? body.content : "";
+  let content = "";
+  if (attachments.length === 0 || rawContent.trim()) {
+    content = cleanText(rawContent, 2000, "message");
+  } else if (/[\x00-\x1F\x7F]/.test(rawContent)) {
+    throw new HttpError(400, "message cannot contain control characters");
+  }
 
   const channel = hub.store.channels[channelId];
   if (!channel) throw new HttpError(404, "channel not found");
@@ -78,6 +121,7 @@ export async function handlePostMessage(hub, request, channelId) {
     edited_at: null,
     reply_to: replyTo,
     reactions: {},
+    attachments,
   };
 
   if (!hub.store.messages[channelId]) hub.store.messages[channelId] = [];
@@ -174,7 +218,7 @@ export function handleVoiceJoin(hub, request, channelId) {
   const channel = hub.store.channels[channelId];
   if (!channel) throw new HttpError(404, "channel not found");
   hub.requireMember(channel.server_id, user.id);
-  if (channel.kind !== "voice") throw new HttpError(400, "not a voice channel");
+  if (channel.kind !== "voice" && !channel.id.startsWith("dm:")) throw new HttpError(400, "not a voice channel");
 
   for (const { serverId, channelId: leftCid, users } of hub.leaveAllVoice(user.id)) {
     hub.emit({ type: "voice_state", server_id: serverId, channel_id: leftCid, users });

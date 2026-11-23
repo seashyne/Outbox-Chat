@@ -22,6 +22,13 @@ import {
   handleUpdateServer,
 } from "./handlers_servers.js";
 import {
+  handleCreateInvite,
+  handleDeleteInvite,
+  handleJoinByInvite,
+  handleListInvites,
+  handlePreviewInvite,
+} from "./handlers_invites.js";
+import {
   handleAcceptFriend,
   handleListFriends,
   handleOpenDm,
@@ -104,6 +111,21 @@ export async function routeHubRequest(hub, request) {
     if (method === "POST" && (m = path.match(/^\/api\/servers\/([^/]+)\/leave$/))) {
       return handleLeaveServer(hub, request, decodeURIComponent(m[1]));
     }
+    if (method === "GET" && (m = path.match(/^\/api\/servers\/([^/]+)\/invites$/))) {
+      return handleListInvites(hub, request, decodeURIComponent(m[1]));
+    }
+    if (method === "POST" && (m = path.match(/^\/api\/servers\/([^/]+)\/invites$/))) {
+      return await handleCreateInvite(hub, request, decodeURIComponent(m[1]));
+    }
+    if (method === "GET" && (m = path.match(/^\/api\/invites\/([^/]+)$/))) {
+      return handlePreviewInvite(hub, decodeURIComponent(m[1]));
+    }
+    if (method === "DELETE" && (m = path.match(/^\/api\/invites\/([^/]+)$/))) {
+      return handleDeleteInvite(hub, request, decodeURIComponent(m[1]));
+    }
+    if (method === "POST" && (m = path.match(/^\/api\/invites\/([^/]+)\/join$/))) {
+      return handleJoinByInvite(hub, request, decodeURIComponent(m[1]));
+    }
     if (method === "DELETE" && (m = path.match(/^\/api\/channels\/([^/]+)$/))) {
       return handleDeleteChannel(hub, request, decodeURIComponent(m[1]));
     }
@@ -184,7 +206,7 @@ export function handleWsMessage(hub, ws, raw) {
     const channel = hub.store.channels[payload.channel_id];
     if (
       channel &&
-      channel.kind === "voice" &&
+      (channel.kind === "voice" || channel.id.startsWith("dm:")) &&
       hub.isMember(channel.server_id, user.id) &&
       hub.isMember(channel.server_id, payload.to) &&
       payload.signal !== undefined
@@ -205,7 +227,11 @@ export function handleWsMessage(hub, ws, raw) {
   }
   if (payload?.type === "meeting_state" && typeof payload.channel_id === "string") {
     const channel = hub.store.channels[payload.channel_id];
-    if (channel && channel.kind === "voice" && hub.isMember(channel.server_id, user.id)) {
+    if (
+      channel &&
+      (channel.kind === "voice" || channel.id.startsWith("dm:")) &&
+      hub.isMember(channel.server_id, user.id)
+    ) {
       hub.emit(
         {
           type: "meeting_state",

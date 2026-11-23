@@ -1,7 +1,8 @@
 //! REST API request/response DTOs and WebSocket event definitions.
 
 use super::{
-    Channel, ChannelKind, Id, PublicUser, Role, ServerProfile, ServerRolesConfig, UserSettings,
+    AttachmentInput, Channel, ChannelKind, Id, PublicUser, Role, ServerProfile, ServerRolesConfig,
+    UserSettings,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -91,9 +92,12 @@ pub struct CreateChannelRequest {
 
 #[derive(Debug, Deserialize)]
 pub struct CreateMessageRequest {
+    #[serde(default)]
     pub content: String,
     #[serde(default)]
     pub reply_to: Option<Id>,
+    #[serde(default)]
+    pub attachments: Vec<AttachmentInput>,
 }
 
 #[derive(Debug, Deserialize)]

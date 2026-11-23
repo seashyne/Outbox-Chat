@@ -57,6 +57,15 @@ async fn main() -> std::io::Result<()> {
         .route("/servers/{id}/channels", post(handlers::create_channel))
         .route("/servers/{id}/join", post(handlers::join_server))
         .route("/servers/{id}/leave", post(handlers::leave_server))
+        .route(
+            "/servers/{id}/invites",
+            get(handlers::list_invites).post(handlers::create_invite),
+        )
+        .route(
+            "/invites/{code}",
+            get(handlers::preview_invite).delete(handlers::delete_invite),
+        )
+        .route("/invites/{code}/join", post(handlers::join_by_invite))
         .route("/channels/{id}", delete(handlers::delete_channel))
         .route(
             "/channels/{id}/messages",

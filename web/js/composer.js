@@ -5,6 +5,7 @@
 
 import { clearReply, clearSearch, sendMessage, setReply, toggleReaction } from './actions.js';
 import { api, handleError, toast } from './api.js';
+import { addAttachmentFiles, openAttachmentPreview, removePendingAttachment } from './attachments.js';
 import { t } from './i18n.js';
 import { openComposerMenu, openEmojiPicker, openProfile, pickEmoji } from './menus.js';
 import { autoGrow, renderMessages, scrollToBottom, updateJumpButton } from './render_chat.js';
@@ -34,6 +35,7 @@ export function bindMessageEvents() {
           .catch(() => toast(t('common.copyFailed'), 'err'));
       }
     } else if (action === 'profile') openProfile(id, btn);
+    else if (action === 'preview-attachment') openAttachmentPreview(btn.dataset.url, btn.dataset.name);
     else if (action === 'clear-search') clearSearch();
     else if (action === 'goto-message') {
       const target = document.querySelector(`.msg[data-id="${id}"]`);
@@ -60,6 +62,18 @@ export function bindMessageEvents() {
   });
   $('sendBtn').addEventListener('click', sendMessage);
   $('attachBtn').addEventListener('click', (e) => openComposerMenu(e.currentTarget));
+  $('chatFileInput')?.addEventListener('change', (e) => {
+    if (e.target.files?.length) addAttachmentFiles(e.target.files);
+    e.target.value = '';
+  });
+  $('pendingAttachments')?.addEventListener('click', (e) => {
+    const rm = e.target.closest('[data-rm-att]');
+    if (rm) removePendingAttachment(Number(rm.dataset.rmAtt));
+  });
+  $('messageInput').addEventListener('paste', (e) => {
+    const files = [...(e.clipboardData?.files || [])];
+    if (files.length) addAttachmentFiles(files);
+  });
   $('emojiPicker').addEventListener('click', (e) => {
     const btn = e.target.closest('[data-emoji]');
     if (btn) pickEmoji(btn.dataset.emoji);

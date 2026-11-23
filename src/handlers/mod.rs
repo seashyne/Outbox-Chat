@@ -8,6 +8,7 @@ pub mod auth;
 mod auth_tests;
 pub mod channels;
 pub mod friends;
+pub mod invites;
 pub mod messages;
 pub mod server_templates;
 pub mod servers;
@@ -21,6 +22,7 @@ pub use channels::{create_channel, delete_channel};
 pub use friends::{
     accept_friend, list_friends, open_dm, remove_friend, request_friend, update_server_profile,
 };
+pub use invites::{create_invite, delete_invite, join_by_invite, list_invites, preview_invite};
 pub use messages::{delete_message, list_messages, post_message, toggle_reaction};
 pub use servers::{
     create_server, join_server, leave_server, list_servers, update_member_role, update_server,

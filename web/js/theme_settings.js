@@ -4,6 +4,7 @@
  */
 
 import { api, toast } from './api.js';
+import { getLanguage, t } from './i18n.js';
 import { renderRail } from './render_shell.js';
 import {
   $, DEFAULT_CUSTOM_COLORS, VALID_THEMES, applyTheme, contrastRatio,
@@ -49,13 +50,13 @@ export function syncThemeControls() {
     const textHex = hexLuminance(themeDraft.colors.chat) > 0.36 ? '#111827' : '#f3f4f6';
     const ratio = contrastRatio(themeDraft.colors.chat, textHex);
     note.textContent = ratio >= 4.5
-      ? `ความคมชัดข้อความ ${ratio.toFixed(1)}:1 (อ่านง่าย)`
-      : `ความคมชัด ${ratio.toFixed(1)}:1 (ต่ำ)`;
+      ? t('settings.contrastGood', { ratio: ratio.toFixed(1) })
+      : t('settings.contrastLow', { ratio: ratio.toFixed(1) });
     note.style.color = ratio >= 4.5 ? 'var(--green)' : 'var(--amber)';
   }
 }
 
-/** Saves the chosen preset/custom palette to the backend and closes the modal. */
+/** Saves the chosen preset/custom palette + language to backend and closes modal. */
 export async function saveThemeSettings(onSaved) {
   const btn = $('saveThemeBtn');
   $('settingsError').textContent = '';
@@ -65,26 +66,27 @@ export async function saveThemeSettings(onSaved) {
     sidebar: $('customSidebarHex').value.trim(),
     chat: $('customChatHex').value.trim(),
   };
-  for (const [k, v] of Object.entries(palette)) {
+  for (const [, v] of Object.entries(palette)) {
     if (!/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(v)) {
-      $('settingsError').textContent = `กรุณากรอกรหัสสีให้ถูกต้อง เช่น #5865f2`;
+      $('settingsError').textContent = t('settings.errColor');
       return;
     }
   }
 
   btn.disabled = true;
   try {
+    const lang = getLanguage();
     const res = await api('/users/@me/settings', {
       method: 'PATCH',
-      body: JSON.stringify({ theme: themeDraft.theme, custom_colors: palette }),
+      body: JSON.stringify({ theme: themeDraft.theme, custom_colors: palette, language: lang }),
     });
-    const saved = res?.settings || { theme: themeDraft.theme, custom_colors: palette };
+    const saved = res?.settings || { theme: themeDraft.theme, custom_colors: palette, language: lang };
     applyTheme(saved.theme, saved.custom_colors);
     renderRail();
-    toast('บันทึกการตั้งค่าธีมแล้ว', 'ok');
+    toast(t('settings.savedAppearance'), 'ok');
     onSaved();
   } catch (error) {
-    $('settingsError').textContent = error.message || 'บันทึกธีมไม่สำเร็จ';
+    $('settingsError').textContent = error.message || t('settings.saveAppearanceErr');
   } finally {
     btn.disabled = false;
   }
@@ -102,9 +104,9 @@ export async function resetThemeSettings() {
       body: JSON.stringify({ theme: 'dark', custom_colors: DEFAULT_CUSTOM_COLORS }),
     });
     renderRail();
-    toast('รีเซ็ตธีมเป็นค่าเริ่มต้นแล้ว', 'ok');
+    toast(t('settings.resetThemeOk'), 'ok');
   } catch (error) {
-    $('settingsError').textContent = error.message || 'รีเซ็ตธีมไม่สำเร็จ';
+    $('settingsError').textContent = error.message || t('settings.resetThemeErr');
   }
 }
 

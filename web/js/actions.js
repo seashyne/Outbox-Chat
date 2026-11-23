@@ -3,7 +3,8 @@
  * message CRUD, replies, clean reactions, and search toggles.
  */
 
-import { api, handleError } from './api.js';
+import { api, handleError, toast } from './api.js';
+import { clearPendingAttachments } from './attachments.js';
 import { loadFriends, openDirectChat, renderFriendsStage } from './friends_ui.js';
 import { ALLOWED_LANGUAGES, setLanguage, t } from './i18n.js';
 import {
@@ -35,6 +36,7 @@ import {
   currentServer,
   safeColor,
   state,
+  statusLabel,
   userById,
 } from './state.js';
 
@@ -135,6 +137,7 @@ export function insertMention(userId) {
 
 function resetChannelNav(clearSearchState = true) {
   clearReply();
+  clearPendingAttachments();
   if (clearSearchState) { state.search = ''; state.searchOpen = false; }
   state.typing.clear();
   state.typingTimers.forEach((timer) => clearTimeout(timer));
@@ -184,6 +187,23 @@ export async function selectServer(id) {
   updateComposerPlaceholder();
   renderAll();
   await loadMessages();
+}
+
+/** Updates presence status immediately and broadcasts over WebSocket. */
+export async function updateMyStatus(nextStatus) {
+  state.myStatus = nextStatus;
+  state.settings.status = nextStatus;
+  renderUserPanel();
+  renderMembers();
+  renderRail();
+  onCloseOverlaysHook();
+  try {
+    await api('/users/@me/settings', { method: 'PATCH', body: JSON.stringify({ status: nextStatus }) });
+    if (state.ws?.readyState === 1) state.ws.send(JSON.stringify({ type: 'status', status: nextStatus }));
+    toast(t('status.toast', { label: statusLabel(state.myStatus) }), 'ok');
+  } catch (error) {
+    handleError(error);
+  }
 }
 
 export async function selectChannel(id) {

@@ -22,7 +22,9 @@ import { bindAuthEvents, logout, start, toggleTheme } from './js/auth.js';
 import { bindMessageEvents } from './js/composer.js';
 import { acceptFriendRequest, openDirectChat, sendFriendRequest } from './js/friends_ui.js';
 import { applyStaticTranslations } from './js/i18n.js';
-import { joinMeetingRoom, leaveMeetingRoom, updateMeetingControl } from './js/meeting_ui.js';
+import { captureInviteFromUrl, openInviteModal, openJoinInvitePrompt } from './js/invites_ui.js';
+import { joinMeetingRoom, leaveMeetingRoom, startDmCall, updateMeetingControl } from './js/meeting_ui.js';
+import { renderDmCallBanner } from './js/notify.js';
 import {
   closeOverlays,
   handleDropdownKeydown,
@@ -47,10 +49,11 @@ import { $, applyTheme, currentServer, state } from './js/state.js';
 
 setUnauthorizedHandler(logout);
 setCloseOverlaysHook(closeOverlays);
+captureInviteFromUrl();
 applyTheme(state.settings.theme, state.settings.custom_colors);
 bindAuthEvents();
 bindMessageEvents();
-bindModalEvents(openCreateServer);
+bindModalEvents(openCreateServer, openJoinInvitePrompt);
 
 function setMobileSidebar(open) {
   $('sidebar')?.classList.toggle('mobile-open', open);
@@ -78,6 +81,7 @@ $('serverHeader').addEventListener('click', (e) => {
   const btn = e.target.closest('[data-action]');
   if (!btn) return;
   if (btn.dataset.action === 'create-channel') openCreateChannel('text');
+  else if (btn.dataset.action === 'server-invite') openInviteModal(state.currentServerId);
   else if (btn.dataset.action === 'server-menu') openServerMenu(btn);
 });
 
@@ -162,6 +166,20 @@ $('chatHeader').addEventListener('click', (e) => {
     renderHeader();
   } else if (action === 'toggle-sidebar') setMobileSidebar(!$('sidebar').classList.contains('mobile-open'));
   else if (action === 'toggle-theme') toggleTheme();
+  else if (action === 'dm-call-voice' || action === 'dm-call-video') {
+    const refreshVoiceUi = () => { renderSidebar(); renderHeader(); renderVoicePanel(); renderVoiceBar(); renderUserPanel(); };
+    startDmCall(action === 'dm-call-video', refreshVoiceUi).catch(handleError);
+  }
+});
+$('dmCallBanner')?.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  const cid = btn.dataset.id;
+  renderDmCallBanner(null);
+  if (btn.dataset.action === 'dm-call-accept' && cid) {
+    const refreshVoiceUi = () => { renderSidebar(); renderHeader(); renderVoicePanel(); renderVoiceBar(); renderUserPanel(); };
+    joinMeetingRoom(cid, refreshVoiceUi).catch(handleError);
+  }
 });
 $('sidebarScrim')?.addEventListener('click', () => setMobileSidebar(false));
 $('channelList').addEventListener('click', (e) => {
@@ -210,6 +228,8 @@ $('dropdown').addEventListener('click', (e) => {
     $('memberList').hidden = !state.membersVisible;
     renderHeader(); closeOverlays();
   } else if (action === 'toggle-theme') { toggleTheme(); closeOverlays(); }
+  else if (action === 'server-invite') { closeOverlays(); openInviteModal(state.currentServerId); }
+  else if (action === 'attach-file') { closeOverlays(); $('chatFileInput')?.click(); }
   else if (action === 'open-settings-profile') { closeOverlays(); openSettingsModal('profile'); }
   else if (action === 'open-settings-appearance') { closeOverlays(); openSettingsModal('appearance'); }
   else if (action === 'set-status') updateMyStatus(btn.dataset.status);

@@ -4,7 +4,7 @@
  */
 
 import { t } from './i18n.js';
-import { currentServer, safeAvatarUrl, safeColor, state } from './state.js';
+import { $, currentServer, safeAvatarUrl, safeColor, state } from './state.js';
 
 /** Resolves effective user profile inside `server` (merging per-server overrides). */
 export function resolveProfile(userOrId, server = currentServer()) {
@@ -78,4 +78,20 @@ export async function resizeImageFile(file, width, height, maxBytes) {
   } finally {
     URL.revokeObjectURL(url);
   }
+}
+
+/** Wires trigger buttons, clear button, and file input resizing for profile image pickers. */
+export function wireImageInput({ inputId, clearId, triggers, width, height, maxBytes, onSet, onError, errKey }) {
+  triggers.forEach((id) => $(id)?.addEventListener('click', () => $(inputId)?.click()));
+  $(clearId)?.addEventListener('click', () => {
+    onSet('');
+    if ($(inputId)) $(inputId).value = '';
+  });
+  $(inputId)?.addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    onError('');
+    try { onSet(await resizeImageFile(file, width, height, maxBytes)); }
+    catch { onError(t(errKey)); }
+  });
 }

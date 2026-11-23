@@ -4,15 +4,19 @@
  * plus online presence and Appearance theme coordination.
  */
 
-import { api, handleError, toast } from './api.js';
+import { updateMyStatus } from './actions.js';
+import { api, toast } from './api.js';
 import { closeOverlays } from './menus.js';
 import { bindBackdropDismiss } from './modals.js';
-import { bannerStyle, resizeImageFile } from './profile_helpers.js';
+import { bannerStyle, wireImageInput } from './profile_helpers.js';
 import { renderMessages } from './render_chat.js';
-import { renderMembers, renderRail, renderUserPanel } from './render_shell.js';
-import { $, AVATAR_COLORS, escapeHtml, initials, normalizeHex6, safeAvatarUrl, safeColor, setModalInert, state, statusLabel } from './state.js';
+import { renderMembers, renderUserPanel } from './render_shell.js';
+import { $, AVATAR_COLORS, escapeHtml, initials, normalizeHex6, safeAvatarUrl, safeColor, setModalInert, state } from './state.js';
 import { bindThemeEvents, loadThemeDraft } from './theme_settings.js';
-import { renderLanguageOptions, setLanguage } from './i18n.js';
+import { renderLanguageOptions, setLanguage, t } from './i18n.js';
+import { isSoundEnabled, requestDesktopNotifications, setSoundEnabled } from './notify.js';
+
+export { updateMyStatus };
 
 let settingsTab = 'profile';
 let profileScope = ''; // "" = global, otherwise serverId
@@ -30,8 +34,10 @@ function loadScopeFields() {
   $('globalUsernameWrap').hidden = isSrv;
   $('globalStatusTextWrap').hidden = isSrv;
   $('globalProfileExtras').hidden = isSrv;
-  $('settingsDisplayNameLabel').textContent = isSrv ? 'ชื่อเล่นในเซิร์ฟเวอร์นี้ (เว้นว่างเพื่อใช้ชื่อหลัก)' : 'ชื่อที่แสดง';
-  $('settingsDisplayName').placeholder = isSrv ? state.me.display_name : 'ชื่อที่แสดง (1-32 ตัวอักษร)';
+  $('settingsDisplayNameLabel').textContent = isSrv
+    ? t('settings.serverNickLabel')
+    : t('settings.displayNameLabel');
+  $('settingsDisplayName').placeholder = isSrv ? state.me.display_name : t('settings.displayNamePh');
 
   $('settingsUsername').value = state.me.username || '';
   $('settingsDisplayName').value = isSrv ? (sp.nickname || '') : (state.me.display_name || '');
@@ -88,23 +94,31 @@ export function switchSettingsTab(tab) {
   $('settingsError').textContent = '';
 }
 
+function refreshScopeSelect() {
+  const scopeSel = $('settingsProfileScope');
+  if (!scopeSel) return;
+  const cur = scopeSel.value || profileScope;
+  scopeSel.innerHTML = `<option value="">${escapeHtml(t('settings.scopeGlobal'))}</option>` +
+    state.servers.map((s) => `<option value="${escapeHtml(s.id)}">${escapeHtml(t('settings.scopeServer', { name: s.name }))}</option>`).join('');
+  scopeSel.value = state.servers.some((s) => s.id === cur) ? cur : '';
+  profileScope = scopeSel.value;
+}
+
 /** Opens the Settings dialog on the requested tab and populates server scopes. */
 export function openSettingsModal(tab = 'profile') {
   closeOverlays();
   if (!state.me) return;
   lastSettingsFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   $('settingsError').textContent = '';
-  const scopeSel = $('settingsProfileScope');
-  scopeSel.innerHTML = `<option value="">โปรไฟล์หลัก (ทุกเซิร์ฟเวอร์)</option>` +
-    state.servers.map((s) => `<option value="${escapeHtml(s.id)}">เฉพาะเซิร์ฟเวอร์: ${escapeHtml(s.name)}</option>`).join('');
   profileScope = '';
-  scopeSel.value = '';
+  refreshScopeSelect();
+  if ($('notifySoundToggle')) $('notifySoundToggle').checked = isSoundEnabled();
 
   const langSel = $('settingsLangSelect');
   renderLanguageOptions(langSel);
 
   $('avatarColorSwatches').innerHTML = AVATAR_COLORS.map((c) =>
-    `<button type="button" class="color-swatch" data-color="${c}" style="background:${c}" title="${c}" aria-label="เลือกสี ${c}"></button>`
+    `<button type="button" class="color-swatch" data-color="${c}" style="background:${c}" title="${c}" aria-label="${c}"></button>`
   ).join('');
 
   loadScopeFields();
@@ -154,10 +168,10 @@ export async function saveProfileSettings() {
       }
       renderMembers();
       renderMessages();
-      toast('บันทึกโปรไฟล์เฉพาะเซิร์ฟเวอร์แล้ว', 'ok');
+      toast(t('settings.savedServerProfile'), 'ok');
       closeSettingsModal(false);
     } catch (error) {
-      $('settingsError').textContent = error.message || 'บันทึกโปรไฟล์ไม่สำเร็จ';
+      $('settingsError').textContent = error.message || t('settings.saveProfileErr');
     } finally {
       btn.disabled = false;
     }
@@ -170,15 +184,15 @@ export async function saveProfileSettings() {
   const status = $('settingsStatusSelect').value;
 
   if (handle.length < 2 || handle.length > 32 || /\s/.test(handle)) {
-    $('settingsError').textContent = 'ชื่อ @ ต้องยาว 2-32 ตัวอักษรและไม่มีเว้นวรรค';
+    $('settingsError').textContent = t('settings.errHandle');
     return;
   }
   if (!displayName || displayName.length > 32) {
-    $('settingsError').textContent = 'ชื่อที่แสดงต้องมีความยาว 1-32 ตัวอักษร';
+    $('settingsError').textContent = t('settings.errDisplayName');
     return;
   }
   if (!/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(colorHex)) {
-    $('settingsError').textContent = 'กรุณาเลือกรหัสสีอวาตาร์ให้ถูกต้อง เช่น #5865f2';
+    $('settingsError').textContent = t('settings.errColor');
     return;
   }
 
@@ -218,46 +232,13 @@ export async function saveProfileSettings() {
     renderMembers();
     renderMessages();
     syncSettingsPreview();
-    toast('บันทึกข้อมูลโปรไฟล์แล้ว', 'ok');
+    toast(t('settings.savedProfile'), 'ok');
     closeSettingsModal(false);
   } catch (error) {
-    $('settingsError').textContent = error.message || 'บันทึกโปรไฟล์ไม่สำเร็จ';
+    $('settingsError').textContent = error.message || t('settings.saveProfileErr');
   } finally {
     btn.disabled = false;
   }
-}
-
-/** Updates presence status immediately and broadcasts over WebSocket. */
-export async function updateMyStatus(nextStatus) {
-  state.myStatus = nextStatus;
-  state.settings.status = nextStatus;
-  renderUserPanel();
-  renderMembers();
-  renderRail();
-  closeOverlays();
-  try {
-    await api('/users/@me/settings', { method: 'PATCH', body: JSON.stringify({ status: nextStatus }) });
-    if (state.ws?.readyState === 1) state.ws.send(JSON.stringify({ type: 'status', status: nextStatus }));
-    toast(`ตั้งสถานะเป็น${statusLabel(state.myStatus)}`, 'ok');
-  } catch (error) {
-    handleError(error);
-  }
-}
-
-function wireImageInput(inputId, clearId, triggers, w, h, maxBytes, onSet, errMsg) {
-  triggers.forEach((id) => $(id)?.addEventListener('click', () => $(inputId)?.click()));
-  $(clearId)?.addEventListener('click', () => {
-    onSet('');
-    if ($(inputId)) $(inputId).value = '';
-    syncSettingsPreview();
-  });
-  $(inputId)?.addEventListener('change', async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    $('settingsError').textContent = '';
-    try { onSet(await resizeImageFile(file, w, h, maxBytes)); syncSettingsPreview(); }
-    catch { $('settingsError').textContent = errMsg; }
-  });
 }
 
 /** Wires DOM listeners for global/per-server profile, images, status, and appearance. */
@@ -274,12 +255,22 @@ export function bindSettingsEvents(onLogout) {
   });
   $('settingsLangSelect').addEventListener('change', (e) => {
     setLanguage(e.target.value);
+    refreshScopeSelect();
+    loadScopeFields();
+    renderLanguageOptions($('settingsLangSelect'), e.target.value);
   });
+  $('notifySoundToggle')?.addEventListener('change', (e) => setSoundEnabled(e.target.checked));
+  $('desktopNotifyBtn')?.addEventListener('click', () => requestDesktopNotifications().catch(() => {}));
   ['settingsDisplayName', 'settingsUsername', 'settingsStatusText', 'settingsBio'].forEach((id) => {
     $(id)?.addEventListener('input', syncSettingsPreview);
   });
-  wireImageInput('avatarFileInput', 'clearAvatarBtn', ['uploadAvatarBtn', 'spAvatar'], 128, 128, 65000, (v) => { draftAvatarUrl = v; }, 'ไม่สามารถใช้รูปโปรไฟล์นี้ได้ กรุณาเลือกรูปอื่น');
-  wireImageInput('bannerFileInput', 'clearBannerBtn', ['uploadBannerBtn'], 480, 160, 115000, (v) => { draftBannerUrl = v; }, 'ไม่สามารถใช้รูปพื้นหลังนี้ได้ กรุณาเลือกรูปอื่น');
+  const bindImg = (opts) => wireImageInput({
+    ...opts,
+    onSet: (v) => { opts.assign(v); syncSettingsPreview(); },
+    onError: (msg) => { $('settingsError').textContent = msg; },
+  });
+  bindImg({ inputId: 'avatarFileInput', clearId: 'clearAvatarBtn', triggers: ['uploadAvatarBtn', 'spAvatar'], width: 128, height: 128, maxBytes: 65000, assign: (v) => { draftAvatarUrl = v; }, errKey: 'settings.errAvatarImg' });
+  bindImg({ inputId: 'bannerFileInput', clearId: 'clearBannerBtn', triggers: ['uploadBannerBtn'], width: 480, height: 160, maxBytes: 115000, assign: (v) => { draftBannerUrl = v; }, errKey: 'settings.errBannerImg' });
   $('avatarColorSwatches').addEventListener('click', (e) => {
     const btn = e.target.closest('.color-swatch');
     if (btn) { draftAvatarColor = btn.dataset.color; syncSettingsPreview(); }

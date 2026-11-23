@@ -56,6 +56,7 @@ export class OutboxHub extends DurableObject {
       }
       this.store.friends = this.store.friends || {};
       this.store.server_profiles = this.store.server_profiles || {};
+      this.store.invites = this.store.invites || {};
       this.voice = map.has("voice") ? JSON.parse(map.get("voice")) : {};
       this.rebuildIndex();
     });
@@ -184,6 +185,7 @@ export class OutboxHub extends DurableObject {
       edited_at: message.edited_at ?? null,
       reply,
       reactions,
+      attachments: message.attachments || [],
     };
   }
 

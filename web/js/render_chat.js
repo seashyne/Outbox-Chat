@@ -2,6 +2,7 @@
  * Message stream renderer, scroll tracking, and composer sizing helpers.
  */
 
+import { getPendingAttachments, renderMessageAttachments } from './attachments.js';
 import { t } from './i18n.js';
 import { resolveProfile } from './profile_helpers.js';
 import {
@@ -54,7 +55,7 @@ export function autoGrow() {
   if (input.scrollHeight > 0) {
     input.style.height = `${Math.max(30, Math.min(input.scrollHeight, 160))}px`;
   }
-  $('sendBtn').disabled = !input.value.trim();
+  $('sendBtn').disabled = !input.value.trim() && !getPendingAttachments().length;
   updateCharCount();
 }
 
@@ -136,6 +137,7 @@ export function renderMessages() {
             <span class="time" title="${escapeHtml(fmtFull(m.created_at))}">${fmtTime(m.created_at)}</span>
           </div>`}
           <div class="content">${formatContent(m.content, query)}${m.edited_at ? `<span class="edited">${escapeHtml(t('chat.edited'))}</span>` : ''}</div>
+          ${renderMessageAttachments(m.attachments)}
           ${reactionHtml}
         </div>
         <div class="msg-toolbar">

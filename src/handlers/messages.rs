@@ -1,8 +1,8 @@
 use super::{clean_text, require_member, Auth};
 use crate::error::{ApiError, ApiResult};
 use crate::model::{
-    new_id, now, ChannelKind, CreateMessageRequest, Event, Message, MessageView, ReactionRequest,
-    Role,
+    new_id, now, Attachment, AttachmentInput, ChannelKind, CreateMessageRequest, Event, Message,
+    MessageView, ReactionRequest, Role,
 };
 use crate::state::AppState;
 use axum::extract::{Path, Query, State};
@@ -11,6 +11,54 @@ use axum::Json;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::sync::Arc;
+
+const ALLOWED_MIMES: [&str; 8] = [
+    "image/png",
+    "image/jpeg",
+    "image/webp",
+    "image/gif",
+    "application/pdf",
+    "text/plain",
+    "application/zip",
+    "application/json",
+];
+
+fn validate_attachments(raw: &[AttachmentInput]) -> ApiResult<Vec<Attachment>> {
+    if raw.len() > 4 {
+        return Err(ApiError::BadRequest("maximum 4 attachments per message".into()));
+    }
+    let mut out = Vec::with_capacity(raw.len());
+    for item in raw {
+        let mime = item.mime.trim().to_ascii_lowercase();
+        if !ALLOWED_MIMES.contains(&mime.as_str()) {
+            return Err(ApiError::BadRequest(format!("unsupported file type: {mime}")));
+        }
+        let name = clean_text(&item.name, 80, "attachment name")?;
+        if name.contains('/') || name.contains('\\') {
+            return Err(ApiError::BadRequest("invalid attachment filename".into()));
+        }
+        let data = item.data_url.trim();
+        let prefix = format!("data:{mime};base64,");
+        if !data.starts_with(&prefix)
+            || data.len() > 620_000
+            || data.chars().any(|c| c.is_control() || c.is_whitespace() || c == '<' || c == '"')
+        {
+            return Err(ApiError::BadRequest("invalid or oversized attachment data".into()));
+        }
+        let approx_bytes = ((data.len() - prefix.len()) * 3) / 4;
+        if approx_bytes > 460_000 {
+            return Err(ApiError::BadRequest("attachment exceeds 450 KB limit".into()));
+        }
+        out.push(Attachment {
+            id: new_id(),
+            name,
+            mime,
+            size: item.size.unwrap_or(approx_bytes).min(460_000),
+            data_url: data.to_string(),
+        });
+    }
+    Ok(out)
+}
 
 #[derive(Debug, Deserialize)]
 pub struct MessagesQuery {
@@ -56,7 +104,16 @@ pub async fn post_message(
     Path(channel_id): Path<String>,
     Json(body): Json<CreateMessageRequest>,
 ) -> ApiResult<Json<MessageView>> {
-    let content = clean_text(&body.content, 2000, "message")?;
+    let attachments = validate_attachments(&body.attachments)?;
+    let content = if attachments.is_empty() || !body.content.trim().is_empty() {
+        clean_text(&body.content, 2000, "message")?
+    } else if body.content.chars().any(|c| c.is_control()) {
+        return Err(ApiError::BadRequest(
+            "message cannot contain control characters".into(),
+        ));
+    } else {
+        String::new()
+    };
     let (view, server_id) = {
         let mut store = state.store.write().map_err(|_| ApiError::Internal)?;
         let channel = store
@@ -84,6 +141,7 @@ pub async fn post_message(
             edited_at: None,
             reply_to,
             reactions: HashMap::new(),
+            attachments,
         };
         store.insert_message(channel_id, message.clone());
         let view = store

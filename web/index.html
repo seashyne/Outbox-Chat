@@ -80,6 +80,7 @@
 
     <main class="chat">
       <header class="chat-header" id="chatHeader"></header>
+      <div class="dm-call-banner" id="dmCallBanner" hidden></div>
       <section class="friends-stage" id="friendsStage" hidden data-i18n-aria-label="friends.aria" aria-label="เพื่อนและข้อความส่วนตัว"></section>
       <section class="meeting-stage" id="meetingStage" hidden data-i18n-aria-label="meeting.aria" aria-label="ห้องประชุมเสียง"></section>
       <div id="meetingAudio" hidden></div>
@@ -91,7 +92,9 @@
       <div class="typing-row" id="typingRow" aria-live="polite"></div>
       <div class="composer-wrap">
         <div class="reply-bar" id="replyBar" hidden></div>
+        <div class="pending-att-bar" id="pendingAttachments" hidden></div>
         <div class="emoji-picker" id="emojiPicker" hidden></div>
+        <input id="chatFileInput" type="file" multiple accept="image/png,image/jpeg,image/webp,image/gif,.pdf,.txt,.zip,.json" hidden />
         <div class="composer" id="composer">
           <button type="button" class="composer-add" id="attachBtn" data-i18n-title="composer.attach" data-i18n-aria-label="composer.attach" title="แทรกรูปแบบข้อความ" aria-label="แทรกรูปแบบข้อความ">+</button>
           <textarea id="messageInput" rows="1" maxlength="2000" data-i18n-placeholder="composer.placeholder" data-i18n-aria-label="composer.inputAria" placeholder="ส่งข้อความ..." aria-label="พิมพ์ข้อความ" enterkeyhint="send" spellcheck="false"></textarea>
@@ -210,6 +213,10 @@
             <span class="settings-lang-hint" data-i18n="lang.hint">เปลี่ยนภาษาที่แสดงผลทั่วทั้งระบบทันที</span>
           </div>
           <select id="settingsLangSelect"></select>
+        </div>
+        <div class="settings-notify-box">
+          <label style="display:flex;align-items:center;gap:8px;margin:0;cursor:pointer"><input type="checkbox" id="notifySoundToggle" style="width:auto" /><span data-i18n="notify.soundLabel">เสียงแจ้งเตือนข้อความและคำขอเพื่อน</span></label>
+          <button type="button" class="ghost-btn" id="desktopNotifyBtn" data-i18n="notify.desktopBtn" style="padding:4px 10px;width:auto">เปิดแจ้งเตือนบนหน้าจอ</button>
         </div>
 
         <label data-i18n="settings.themePresets">ชุดธีมสำเร็จรูป</label>

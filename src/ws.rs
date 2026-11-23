@@ -155,7 +155,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, user: User) {
                     }) => {
                         let valid_server = state.store.read().ok().and_then(|s| {
                             let c = s.channel(&channel_id)?;
-                            if c.kind != crate::model::ChannelKind::Voice {
+                            if c.kind != crate::model::ChannelKind::Voice && !c.id.starts_with("dm:") {
                                 return None;
                             }
                             (s.is_member(&c.server_id, &user_id) && s.is_member(&c.server_id, &to))
@@ -181,7 +181,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, user: User) {
                     }) => {
                         let valid_server = state.store.read().ok().and_then(|s| {
                             let c = s.channel(&channel_id)?;
-                            if c.kind != crate::model::ChannelKind::Voice {
+                            if c.kind != crate::model::ChannelKind::Voice && !c.id.starts_with("dm:") {
                                 return None;
                             }
                             s.is_member(&c.server_id, &user_id).then(|| c.server_id.clone())
