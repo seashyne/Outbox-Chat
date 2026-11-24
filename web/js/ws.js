@@ -4,6 +4,7 @@
 
 import { appendMessage, loadMessages, openDmChannel, refreshMessages, renderAll } from './actions.js';
 import { setConn, toast } from './api.js';
+import { applyUpdatedMessage } from './chat_features.js';
 import { wsUrl } from './config.js';
 import { loadFriends, renderFriendsStage } from './friends_ui.js';
 import { t } from './i18n.js';
@@ -100,8 +101,8 @@ export function handleEvent(event) {
       break;
     }
     case 'message_update':
-      if (state.me && event.actor_id === state.me.id) break;
-      if (event.message.channel_id === currentChannel()?.id && !state.searchOpen) refreshMessages();
+      if (event.message) applyUpdatedMessage(event.message);
+      else if (event.message?.channel_id === currentChannel()?.id && !state.searchOpen) refreshMessages();
       break;
     case 'message_delete': {
       const stick = nearBottom();

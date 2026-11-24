@@ -206,6 +206,7 @@ export function openServerMenu(anchor) {
   const canLeave = server && state.me && server.owner_id !== state.me.id;
   openDropdown(`
     <button data-action="server-invite">${ICONS.link} <span>${escapeHtml(t('menu.inviteFriends'))}</span></button>
+    <button data-action="server-search">${ICONS.search} <span>${escapeHtml(t('chat.serverSearchTitle'))}</span></button>
     <button data-action="server-settings">${ICONS.settings} <span>${escapeHtml(t('menu.serverSettings'))}</span></button>
     <button data-action="create-channel">${ICONS.plus} <span>${escapeHtml(t('menu.createChannel'))}</span></button>
     <button data-action="directory">${ICONS.search} <span>${escapeHtml(t('menu.directory'))}</span></button>
@@ -249,6 +250,7 @@ export function openComposerMenu(anchor) {
   openDropdown(`
     <div class="dd-title">${escapeHtml(t('composer.attach'))}</div>
     <button data-action="attach-file">${ICONS.clip} <span>${escapeHtml(t('chat.attachFileMenu'))}</span></button>
+    <button data-action="open-stickers">${ICONS.sticker} <span>${escapeHtml(t('chat.stickerMenu'))}</span></button>
     <div class="dd-sep"></div>
     <button data-action="insert-snippet" data-snippet="code"><span>${escapeHtml(t('composer.snippetCode'))}</span></button>
     <button data-action="insert-snippet" data-snippet="bold"><span>${escapeHtml(t('composer.snippetBold'))}</span></button>

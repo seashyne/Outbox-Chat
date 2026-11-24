@@ -5,7 +5,8 @@
 
 use super::{
     new_token, now, Channel, ChannelKind, FriendEdge, Id, Message, MessageView, ReactionView,
-    ReplyPreview, Role, Server, ServerInvite, ServerProfile, ServerRolesConfig, User, UserSettings,
+    ReplyPreview, Role, Server, ServerInvite, ServerProfile, ServerRolesConfig, ServerSticker,
+    User, UserSettings,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -30,6 +31,9 @@ pub struct Store {
     /// invite code -> ServerInvite
     #[serde(default)]
     pub invites: HashMap<String, ServerInvite>,
+    /// server_id -> custom server stickers
+    #[serde(default)]
+    pub stickers: HashMap<Id, Vec<ServerSticker>>,
     /// In-memory lookup: message_id -> channel_id (rebuilt on load/seed).
     #[serde(skip)]
     pub message_index: HashMap<Id, Id>,
@@ -119,6 +123,7 @@ impl Store {
             reply,
             reactions,
             attachments: message.attachments.clone(),
+            pinned: message.pinned,
         })
     }
 
@@ -221,6 +226,7 @@ impl Store {
                 reply_to: None,
                 reactions: HashMap::new(),
                 attachments: Vec::new(),
+                pinned: false,
             })
             .collect();
         store.messages.insert("demo-0".into(), messages);

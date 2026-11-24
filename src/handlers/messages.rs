@@ -142,6 +142,7 @@ pub async fn post_message(
             reply_to,
             reactions: HashMap::new(),
             attachments,
+            pinned: false,
         };
         store.insert_message(channel_id, message.clone());
         let view = store

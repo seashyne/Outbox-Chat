@@ -3,44 +3,18 @@
  * Wires DOM event delegation across modules in `web/js/` (zero build step).
  */
 
-import {
-  clearReply,
-  clearSearch,
-  insertMention,
-  openDmChannel,
-  renderAll,
-  selectChannel,
-  selectFriendsHome,
-  selectServer,
-  setCloseOverlaysHook,
-  setReply,
-  startDmWithUser,
-  toggleSearch,
-} from './js/actions.js';
+import { clearReply, clearSearch, insertMention, openDmChannel, renderAll, selectChannel, selectFriendsHome, selectServer, setCloseOverlaysHook, setReply, startDmWithUser, toggleSearch } from './js/actions.js';
 import { handleError, setUnauthorizedHandler, toast } from './js/api.js';
 import { bindAuthEvents, logout, start, toggleTheme } from './js/auth.js';
+import { openPinnedMessagesModal, openServerSearchModal, openStickerPickerModal } from './js/chat_features.js';
 import { bindMessageEvents } from './js/composer.js';
 import { acceptFriendRequest, openDirectChat, sendFriendRequest } from './js/friends_ui.js';
 import { applyStaticTranslations } from './js/i18n.js';
 import { captureInviteFromUrl, openInviteModal, openJoinInvitePrompt } from './js/invites_ui.js';
 import { joinMeetingRoom, leaveMeetingRoom, startDmCall, updateMeetingControl } from './js/meeting_ui.js';
 import { renderDmCallBanner } from './js/notify.js';
-import {
-  closeOverlays,
-  handleDropdownKeydown,
-  openChannelInfo,
-  openProfile,
-  openServerMenu,
-  openStatusMenu,
-} from './js/menus.js';
-import {
-  bindModalEvents,
-  closeModal,
-  openConfirmDeleteChannel,
-  openConfirmLeaveServer,
-  openCreateChannel,
-  openDirectory,
-} from './js/modals.js';
+import { closeOverlays, handleDropdownKeydown, openChannelInfo, openProfile, openServerMenu, openStatusMenu } from './js/menus.js';
+import { bindModalEvents, closeModal, openConfirmDeleteChannel, openConfirmLeaveServer, openCreateChannel, openDirectory } from './js/modals.js';
 import { autoGrow } from './js/render_chat.js';
 import { renderHeader, renderRail, renderSidebar, renderUserPanel, renderVoiceBar, renderVoicePanel } from './js/render_shell.js';
 import { changeMemberRole, openCreateServer, openServerSettings } from './js/server_modal.js';
@@ -160,6 +134,8 @@ $('chatHeader').addEventListener('click', (e) => {
   if (!btn) return;
   const action = btn.dataset.action;
   if (action === 'toggle-search') toggleSearch();
+  else if (action === 'open-pins') openPinnedMessagesModal();
+  else if (action === 'server-search') openServerSearchModal();
   else if (action === 'toggle-members') {
     state.membersVisible = !state.membersVisible;
     $('memberList').hidden = !state.membersVisible;
@@ -229,7 +205,9 @@ $('dropdown').addEventListener('click', (e) => {
     renderHeader(); closeOverlays();
   } else if (action === 'toggle-theme') { toggleTheme(); closeOverlays(); }
   else if (action === 'server-invite') { closeOverlays(); openInviteModal(state.currentServerId); }
+  else if (action === 'server-search') { closeOverlays(); openServerSearchModal(); }
   else if (action === 'attach-file') { closeOverlays(); $('chatFileInput')?.click(); }
+  else if (action === 'open-stickers') { closeOverlays(); openStickerPickerModal(); }
   else if (action === 'open-settings-profile') { closeOverlays(); openSettingsModal('profile'); }
   else if (action === 'open-settings-appearance') { closeOverlays(); openSettingsModal('appearance'); }
   else if (action === 'set-status') updateMyStatus(btn.dataset.status);

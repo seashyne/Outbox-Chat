@@ -158,3 +158,37 @@ pub struct InvitePreview {
     pub uses: u32,
     pub valid: bool,
 }
+
+/// Request payload for `PATCH /api/messages/{id}`.
+#[derive(Debug, Deserialize)]
+pub struct EditMessageRequest {
+    pub content: String,
+}
+
+/// Custom image sticker belonging to a server.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ServerSticker {
+    pub id: Id,
+    pub server_id: Id,
+    pub name: String,
+    pub data_url: String,
+    pub created_by: Id,
+    pub created_at: String,
+}
+
+/// Request payload for `POST /api/servers/{id}/stickers`.
+#[derive(Debug, Deserialize)]
+pub struct CreateStickerRequest {
+    pub name: String,
+    pub data_url: String,
+}
+
+/// Automatic URL metadata preview returned by `GET /api/links/preview`.
+#[derive(Clone, Debug, Serialize)]
+pub struct LinkPreviewResponse {
+    pub url: String,
+    pub domain: String,
+    pub title: String,
+    pub description: String,
+    pub image: Option<String>,
+}

@@ -2,7 +2,7 @@
 
 use super::{
     AttachmentInput, Channel, ChannelKind, Id, PublicUser, Role, ServerProfile, ServerRolesConfig,
-    UserSettings,
+    ServerSticker, UserSettings,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -184,6 +184,8 @@ pub struct ServerView {
     pub member_roles: HashMap<Id, Role>,
     #[serde(default)]
     pub member_profiles: HashMap<Id, ServerProfile>,
+    #[serde(default)]
+    pub stickers: Vec<ServerSticker>,
 }
 
 #[derive(Debug, Serialize)]

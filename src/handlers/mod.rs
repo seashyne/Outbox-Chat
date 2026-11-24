@@ -7,6 +7,7 @@ pub mod auth;
 #[cfg(test)]
 mod auth_tests;
 pub mod channels;
+pub mod chat_ext;
 pub mod friends;
 pub mod invites;
 pub mod messages;
@@ -19,6 +20,10 @@ pub mod voice;
 
 pub use auth::{bootstrap, login, logout, register};
 pub use channels::{create_channel, delete_channel};
+pub use chat_ext::{
+    create_sticker, delete_sticker, edit_message, list_pinned_messages, list_stickers,
+    preview_link, search_server_messages, toggle_pin_message,
+};
 pub use friends::{
     accept_friend, list_friends, open_dm, remove_friend, request_friend, update_server_profile,
 };
@@ -152,6 +157,7 @@ pub(crate) fn server_view(store: &Store, user_id: &str, server: &Server) -> Serv
         members,
         member_roles,
         member_profiles,
+        stickers: store.stickers.get(&server.id).cloned().unwrap_or_default(),
     }
 }
 

@@ -2,40 +2,11 @@
  * HTTP REST router and WebSocket Hibernation handlers for OutboxHub.
  */
 
-import {
-  handleBootstrap,
-  handleGetSettings,
-  handleLogin,
-  handleLogout,
-  handleRegister,
-  handleUpdateProfile,
-  handleUpdateSettings,
-} from "./handlers_auth.js";
-import {
-  handleCreateChannel,
-  handleCreateServer,
-  handleDeleteChannel,
-  handleJoinServer,
-  handleLeaveServer,
-  handleListServers,
-  handleUpdateMemberRole,
-  handleUpdateServer,
-} from "./handlers_servers.js";
-import {
-  handleCreateInvite,
-  handleDeleteInvite,
-  handleJoinByInvite,
-  handleListInvites,
-  handlePreviewInvite,
-} from "./handlers_invites.js";
-import {
-  handleAcceptFriend,
-  handleListFriends,
-  handleOpenDm,
-  handleRemoveFriend,
-  handleRequestFriend,
-  handleUpdateServerProfile,
-} from "./handlers_friends.js";
+import { handleBootstrap, handleGetSettings, handleLogin, handleLogout, handleRegister, handleUpdateProfile, handleUpdateSettings } from "./handlers_auth.js";
+import { handleCreateChannel, handleCreateServer, handleDeleteChannel, handleJoinServer, handleLeaveServer, handleListServers, handleUpdateMemberRole, handleUpdateServer } from "./handlers_servers.js";
+import { handleCreateSticker, handleDeleteSticker, handleEditMessage, handleListPinnedMessages, handleListStickers, handlePreviewLink, handleSearchServerMessages, handleTogglePinMessage } from "./handlers_chat_ext.js";
+import { handleCreateInvite, handleDeleteInvite, handleJoinByInvite, handleListInvites, handlePreviewInvite } from "./handlers_invites.js";
+import { handleAcceptFriend, handleListFriends, handleOpenDm, handleRemoveFriend, handleRequestFriend, handleUpdateServerProfile } from "./handlers_friends.js";
 import {
   handleDeleteMessage,
   handleListMessages,
@@ -135,11 +106,35 @@ export async function routeHubRequest(hub, request) {
     if (method === "POST" && (m = path.match(/^\/api\/channels\/([^/]+)\/messages$/))) {
       return await handlePostMessage(hub, request, decodeURIComponent(m[1]));
     }
+    if (method === "GET" && (m = path.match(/^\/api\/channels\/([^/]+)\/pins$/))) {
+      return handleListPinnedMessages(hub, request, decodeURIComponent(m[1]));
+    }
+    if (method === "PATCH" && (m = path.match(/^\/api\/messages\/([^/]+)$/))) {
+      return await handleEditMessage(hub, request, decodeURIComponent(m[1]));
+    }
+    if (method === "POST" && (m = path.match(/^\/api\/messages\/([^/]+)\/pin$/))) {
+      return handleTogglePinMessage(hub, request, decodeURIComponent(m[1]));
+    }
     if (method === "DELETE" && (m = path.match(/^\/api\/messages\/([^/]+)$/))) {
       return handleDeleteMessage(hub, request, decodeURIComponent(m[1]));
     }
     if (method === "POST" && (m = path.match(/^\/api\/messages\/([^/]+)\/reactions$/))) {
       return await handleToggleReaction(hub, request, decodeURIComponent(m[1]));
+    }
+    if (method === "GET" && (m = path.match(/^\/api\/servers\/([^/]+)\/search$/))) {
+      return handleSearchServerMessages(hub, request, decodeURIComponent(m[1]), url);
+    }
+    if (method === "GET" && (m = path.match(/^\/api\/servers\/([^/]+)\/stickers$/))) {
+      return handleListStickers(hub, request, decodeURIComponent(m[1]));
+    }
+    if (method === "POST" && (m = path.match(/^\/api\/servers\/([^/]+)\/stickers$/))) {
+      return await handleCreateSticker(hub, request, decodeURIComponent(m[1]));
+    }
+    if (method === "DELETE" && (m = path.match(/^\/api\/servers\/([^/]+)\/stickers\/([^/]+)$/))) {
+      return handleDeleteSticker(hub, request, decodeURIComponent(m[1]), decodeURIComponent(m[2]));
+    }
+    if (method === "GET" && path === "/api/links/preview") {
+      return handlePreviewLink(hub, request, url);
     }
     if (method === "POST" && (m = path.match(/^\/api\/channels\/([^/]+)\/voice\/join$/))) {
       return handleVoiceJoin(hub, request, decodeURIComponent(m[1]));

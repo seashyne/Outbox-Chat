@@ -208,6 +208,7 @@ mod tests {
             reply_to: None,
             reactions: HashMap::new(),
             attachments: Vec::new(),
+            pinned: false,
         };
         store.insert_message("demo-1".into(), msg);
         assert_eq!(

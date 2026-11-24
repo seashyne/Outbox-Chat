@@ -198,6 +198,7 @@ export function renderHeader() {
       <span class="topic">${escapeHtml(peer ? t('friends.dmTopic', { username: peer.username }) : t('friends.manageHint'))}</span>
       <span class="spacer"></span>
       ${peer && state.dmChannel ? `<div class="header-actions">
+        <button class="icon-btn" data-action="open-pins" title="${escapeHtml(t('chat.pinsTitle'))}" aria-label="${escapeHtml(t('chat.pinsTitle'))}">${ICONS.pin}</button>
         <button class="icon-btn" data-action="dm-call-voice" title="${escapeHtml(t('dm.voiceCall'))}" aria-label="${escapeHtml(t('dm.voiceCall'))}">${ICONS.phone}</button>
         <button class="icon-btn" data-action="dm-call-video" title="${escapeHtml(t('dm.videoCall'))}" aria-label="${escapeHtml(t('dm.videoCall'))}">${ICONS.video}</button>
       </div>` : ''}`;
@@ -215,6 +216,7 @@ export function renderHeader() {
     <span class="spacer"></span>
     <div class="header-actions">
       ${state.searchOpen ? `<input id="searchInput" class="search-input" type="text" placeholder="${escapeHtml(t('header.searchPlaceholder'))}" value="${escapeHtml(state.search)}" aria-label="${escapeHtml(t('header.searchAria'))}" />` : ''}
+      <button class="icon-btn" data-action="open-pins" title="${escapeHtml(t('chat.pinsTitle'))}" aria-label="${escapeHtml(t('chat.pinsTitle'))}">${ICONS.pin}</button>
       <button class="icon-btn ${state.searchOpen ? 'active' : ''}" data-action="toggle-search" title="${escapeHtml(t('header.searchTitle'))}" aria-label="${escapeHtml(t('header.searchAria'))}">${ICONS.search}</button>
       <button class="icon-btn ${state.membersVisible ? 'active' : ''}" data-action="toggle-members" title="${escapeHtml(t('header.membersTitle'))}" aria-label="${escapeHtml(t('header.membersAria'))}">${ICONS.members}</button>
     </div>`;

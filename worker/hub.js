@@ -57,6 +57,7 @@ export class OutboxHub extends DurableObject {
       this.store.friends = this.store.friends || {};
       this.store.server_profiles = this.store.server_profiles || {};
       this.store.invites = this.store.invites || {};
+      this.store.stickers = this.store.stickers || {};
       this.voice = map.has("voice") ? JSON.parse(map.get("voice")) : {};
       this.rebuildIndex();
     });
@@ -147,6 +148,7 @@ export class OutboxHub extends DurableObject {
       members,
       member_roles: { ...memberRolesMap },
       member_profiles: memberProfiles,
+      stickers: [...(this.store.stickers?.[server.id] || [])],
     };
   }
 
@@ -186,6 +188,7 @@ export class OutboxHub extends DurableObject {
       reply,
       reactions,
       attachments: message.attachments || [],
+      pinned: Boolean(message.pinned),
     };
   }
 

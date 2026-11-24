@@ -6,6 +6,7 @@
 import { clearReply, clearSearch, sendMessage, setReply, toggleReaction } from './actions.js';
 import { api, handleError, toast } from './api.js';
 import { addAttachmentFiles, openAttachmentPreview, removePendingAttachment } from './attachments.js';
+import { openEditMessageModal, togglePinMessage } from './chat_features.js';
 import { t } from './i18n.js';
 import { openComposerMenu, openEmojiPicker, openProfile, pickEmoji } from './menus.js';
 import { autoGrow, renderMessages, scrollToBottom, updateJumpButton } from './render_chat.js';
@@ -27,6 +28,8 @@ export function bindMessageEvents() {
     else if (action === 'quick-react') toggleReaction(id, '+1');
     else if (action === 'react-more') openEmojiPicker(btn, { type: 'reaction', messageId: id });
     else if (action === 'reply') setReply(id);
+    else if (action === 'edit-message') openEditMessageModal(id);
+    else if (action === 'pin-message') togglePinMessage(id);
     else if (action === 'copy-message') {
       const targetMsg = state.messages.find((m) => m.id === id);
       if (targetMsg) {

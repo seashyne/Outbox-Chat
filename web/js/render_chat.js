@@ -3,6 +3,7 @@
  */
 
 import { getPendingAttachments, renderMessageAttachments } from './attachments.js';
+import { hydrateLinkPreviews, renderLinkPreviews } from './chat_features.js';
 import { t } from './i18n.js';
 import { resolveProfile } from './profile_helpers.js';
 import {
@@ -134,9 +135,11 @@ export function renderMessages() {
           ${grouped ? '' : `<div class="meta">
             <button class="author" data-action="profile" data-id="${escapeHtml(author.id)}" style="color:${safeColor(author.color)}">${escapeHtml(author.display_name)}</button>
             ${author.bot ? `<span class="bot-tag">${escapeHtml(t('common.bot'))}</span>` : ''}
+            ${m.pinned ? `<span class="pin-tag">${ICONS.pin} ${escapeHtml(t('chat.pinnedTag'))}</span>` : ''}
             <span class="time" title="${escapeHtml(fmtFull(m.created_at))}">${fmtTime(m.created_at)}</span>
           </div>`}
           <div class="content">${formatContent(m.content, query)}${m.edited_at ? `<span class="edited">${escapeHtml(t('chat.edited'))}</span>` : ''}</div>
+          ${renderLinkPreviews(m.content)}
           ${renderMessageAttachments(m.attachments)}
           ${reactionHtml}
         </div>
@@ -144,6 +147,8 @@ export function renderMessages() {
           <button data-action="quick-react" data-id="${escapeHtml(m.id)}" title="${escapeHtml(t('chat.quickReact'))}">+1</button>
           <button data-action="react-more" data-id="${escapeHtml(m.id)}" title="${escapeHtml(t('chat.addReaction'))}">${ICONS.plus}</button>
           <button data-action="reply" data-id="${escapeHtml(m.id)}" title="${escapeHtml(t('chat.reply'))}">${ICONS.reply}</button>
+          <button data-action="pin-message" data-id="${escapeHtml(m.id)}" title="${escapeHtml(t('chat.pinMessage'))}">${ICONS.pin}</button>
+          ${state.me && author.id === state.me.id ? `<button data-action="edit-message" data-id="${escapeHtml(m.id)}" title="${escapeHtml(t('chat.editMessage'))}">${ICONS.edit}</button>` : ''}
           <button data-action="copy-message" data-id="${escapeHtml(m.id)}" title="${escapeHtml(t('chat.copyMessage'))}">${ICONS.copy}</button>
           ${canDelete ? `<button data-action="delete-message" data-id="${escapeHtml(m.id)}" title="${escapeHtml(t('chat.deleteMessage'))}">${ICONS.trash}</button>` : ''}
         </div>
@@ -152,4 +157,5 @@ export function renderMessages() {
     lastTime = time;
   }
   $('messageList').innerHTML = html;
+  hydrateLinkPreviews();
 }

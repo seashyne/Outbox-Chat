@@ -246,6 +246,8 @@ pub struct Message {
     pub reactions: HashMap<String, Vec<Id>>,
     #[serde(default)]
     pub attachments: Vec<Attachment>,
+    #[serde(default)]
+    pub pinned: bool,
 }
 
 /// Compact quoted snippet of a replied-to message.
@@ -278,4 +280,6 @@ pub struct MessageView {
     pub reactions: Vec<ReactionView>,
     #[serde(default)]
     pub attachments: Vec<Attachment>,
+    #[serde(default)]
+    pub pinned: bool,
 }

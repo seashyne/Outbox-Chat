@@ -71,8 +71,23 @@ async fn main() -> std::io::Result<()> {
             "/channels/{id}/messages",
             get(handlers::list_messages).post(handlers::post_message),
         )
-        .route("/messages/{id}", delete(handlers::delete_message))
+        .route("/channels/{id}/pins", get(handlers::list_pinned_messages))
+        .route(
+            "/messages/{id}",
+            delete(handlers::delete_message).patch(handlers::edit_message),
+        )
+        .route("/messages/{id}/pin", post(handlers::toggle_pin_message))
         .route("/messages/{id}/reactions", post(handlers::toggle_reaction))
+        .route("/servers/{id}/search", get(handlers::search_server_messages))
+        .route(
+            "/servers/{id}/stickers",
+            get(handlers::list_stickers).post(handlers::create_sticker),
+        )
+        .route(
+            "/servers/{id}/stickers/{sticker_id}",
+            delete(handlers::delete_sticker),
+        )
+        .route("/links/preview", get(handlers::preview_link))
         .route("/channels/{id}/voice/join", post(handlers::voice_join))
         .route("/channels/{id}/voice/leave", post(handlers::voice_leave))
         .route("/rtc/ice", get(handlers::rtc_ice))

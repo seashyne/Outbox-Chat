@@ -122,6 +122,7 @@ export async function handlePostMessage(hub, request, channelId) {
     reply_to: replyTo,
     reactions: {},
     attachments,
+    pinned: false,
   };
 
   if (!hub.store.messages[channelId]) hub.store.messages[channelId] = [];
