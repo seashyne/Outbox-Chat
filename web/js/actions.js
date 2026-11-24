@@ -101,12 +101,13 @@ export function updateComposerPlaceholder() {
   if (!input) return;
   if (state.homeMode && state.dmChannel) {
     input.placeholder = t('composer.placeholderDm', { name: state.dmPeer?.display_name || t('rail.friendsShort') });
-    return;
+  } else {
+    const channel = currentChannel();
+    input.placeholder = channel
+      ? t('composer.placeholderChannel', { name: channel.name })
+      : t('composer.placeholderSelect');
   }
-  const channel = currentChannel();
-  input.placeholder = channel
-    ? t('composer.placeholderChannel', { name: channel.name })
-    : t('composer.placeholderSelect');
+  import('./composer.js').then((m) => m.syncComposerAccess()).catch(() => {});
 }
 
 export function toggleSearch() {

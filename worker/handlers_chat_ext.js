@@ -24,9 +24,13 @@ export async function handleEditMessage(hub, request, messageId) {
   const located = hub.locateMessage(messageId);
   if (!located) throw new HttpError(404, "message not found");
   const [channelId, index] = located;
-  const channel = hub.store.channels[channelId];
+  const parentId = hub.store.threads?.[channelId]?.channel_id || channelId;
+  const channel = hub.store.channels[parentId];
   if (!channel) throw new HttpError(404, "channel not found");
   hub.requireMember(channel.server_id, user.id);
+  if (!hub.canViewChannel(channel, user.id)) {
+    throw new HttpError(403, "you cannot access this channel");
+  }
 
   const message = hub.store.messages[channelId]?.[index];
   if (!message) throw new HttpError(404, "message not found");
@@ -48,9 +52,13 @@ export function handleTogglePinMessage(hub, request, messageId) {
   const located = hub.locateMessage(messageId);
   if (!located) throw new HttpError(404, "message not found");
   const [channelId, index] = located;
-  const channel = hub.store.channels[channelId];
+  const parentId = hub.store.threads?.[channelId]?.channel_id || channelId;
+  const channel = hub.store.channels[parentId];
   if (!channel) throw new HttpError(404, "channel not found");
   hub.requireMember(channel.server_id, user.id);
+  if (!hub.canViewChannel(channel, user.id)) {
+    throw new HttpError(403, "you cannot access this channel");
+  }
 
   const message = hub.store.messages[channelId]?.[index];
   if (!message) throw new HttpError(404, "message not found");
@@ -68,6 +76,9 @@ export function handleListPinnedMessages(hub, request, channelId) {
   const channel = hub.store.channels[channelId];
   if (!channel) throw new HttpError(404, "channel not found");
   hub.requireMember(channel.server_id, user.id);
+  if (!hub.canViewChannel(channel, user.id)) {
+    throw new HttpError(403, "you cannot access this channel");
+  }
 
   const list = [...(hub.store.messages[channelId] || [])]
     .reverse()
@@ -88,7 +99,7 @@ export function handleSearchServerMessages(hub, request, serverId, url) {
   const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 100) : 40;
 
   const textChannelIds = Object.values(hub.store.channels)
-    .filter((c) => c.server_id === serverId && c.kind === "text")
+    .filter((c) => c.server_id === serverId && c.kind === "text" && hub.canViewChannel(c, user.id))
     .map((c) => c.id);
 
   const hits = [];

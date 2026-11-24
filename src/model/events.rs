@@ -1,6 +1,6 @@
 //! Realtime WebSocket server-to-client and client-to-server event payloads.
 
-use super::{Channel, Id, MessageView, PublicUser, Role, Server, ServerProfile};
+use super::{Channel, Id, MessageView, PublicUser, Role, Server, ServerProfile, ThreadView};
 use serde::{Deserialize, Serialize};
 
 /// Realtime events pushed from server to connected WebSocket clients.
@@ -11,7 +11,10 @@ pub enum Event {
     MessageDelete { server_id: Id, channel_id: Id, message_id: Id },
     MessageUpdate { server_id: Id, message: MessageView, actor_id: Id },
     ChannelCreate { server_id: Id, channel: Channel },
+    ChannelUpdate { server_id: Id, channel: Channel },
     ChannelDelete { server_id: Id, channel_id: Id },
+    ThreadCreate { server_id: Id, thread: ThreadView },
+    ThreadMessageCreate { server_id: Id, thread_id: Id, channel_id: Id, message: MessageView },
     ServerCreate { server: Server },
     ServerUpdate { server: Server },
     MemberRoleUpdate { server_id: Id, user_id: Id, role: Role },
@@ -51,7 +54,10 @@ impl Event {
             | Event::MessageDelete { server_id, .. }
             | Event::MessageUpdate { server_id, .. }
             | Event::ChannelCreate { server_id, .. }
+            | Event::ChannelUpdate { server_id, .. }
             | Event::ChannelDelete { server_id, .. }
+            | Event::ThreadCreate { server_id, .. }
+            | Event::ThreadMessageCreate { server_id, .. }
             | Event::MemberJoin { server_id, .. }
             | Event::MemberLeave { server_id, .. }
             | Event::MemberRoleUpdate { server_id, .. }

@@ -112,6 +112,9 @@ export function handlePreviewInvite(hub, code) {
   if (!inv) throw new HttpError(404, "invite not found");
   const srv = hub.store.servers[inv.server_id];
   if (!srv) throw new HttpError(404, "server not found");
+  if (hub.store.bans?.[srv.id]?.[user.id]) {
+    throw new HttpError(403, "you are banned from this server");
+  }
   const memberCount = Object.keys(hub.store.members[srv.id] || {}).length;
   const valid = !isExpired(inv.expires_at) && !isExhausted(inv.max_uses, inv.uses || 0);
   return jsonResponse({
@@ -140,6 +143,9 @@ export function handleJoinByInvite(hub, request, code) {
   }
   const srv = hub.store.servers[inv.server_id];
   if (!srv) throw new HttpError(404, "server not found");
+  if (hub.store.bans?.[srv.id]?.[user.id]) {
+    throw new HttpError(403, "you are banned from this server");
+  }
 
   hub.store.members[srv.id] = hub.store.members[srv.id] || {};
   const already = Boolean(hub.store.members[srv.id][user.id]);

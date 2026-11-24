@@ -1,6 +1,10 @@
+use super::moderation::record_audit;
 use super::{clean_text, require_member, slug, Auth};
 use crate::error::{ApiError, ApiResult};
-use crate::model::{new_id, now, Channel, ChannelKind, CreateChannelRequest, Event};
+use crate::model::{
+    new_id, now, Channel, ChannelKind, ChannelVisibility, CreateChannelRequest, Event, Role,
+    UpdateChannelRequest,
+};
 use crate::state::AppState;
 use axum::extract::{Path, State};
 use axum::Json;
@@ -40,12 +44,21 @@ pub async fn create_channel(
             .values()
             .filter(|c| c.server_id == server_id && c.kind == body.kind)
             .count() as i64;
+        let category = body
+            .category
+            .as_deref()
+            .map(|s| s.trim().chars().take(32).collect::<String>())
+            .filter(|s| !s.is_empty());
         let channel = Channel {
             id: new_id(),
             server_id: server_id.clone(),
             name,
             kind: body.kind,
             topic,
+            category,
+            visibility: ChannelVisibility::Public,
+            read_only: false,
+            slowmode_seconds: 0,
             position,
             created_at: now(),
         };
@@ -98,4 +111,47 @@ pub async fn delete_channel(
         "success": true,
         "channel_id": channel_id,
     })))
+}
+
+/// Updates channel name, topic, category, visibility, read-only, or slowmode (`PATCH /api/channels/{id}`).
+pub async fn update_channel(
+    State(state): State<Arc<AppState>>,
+    Auth(actor): Auth,
+    Path(channel_id): Path<String>,
+    Json(body): Json<UpdateChannelRequest>,
+) -> ApiResult<Json<Channel>> {
+    if channel_id.starts_with("dm:") {
+        return Err(ApiError::BadRequest("cannot edit a direct message channel".into()));
+    }
+    if body.slowmode_seconds.is_some_and(|s| s > 21_600) {
+        return Err(ApiError::BadRequest("slowmode must be 0-21600 seconds".into()));
+    }
+    let updated = {
+        let mut store = state.store.write().map_err(|_| ApiError::Internal)?;
+        let mut ch = store.channel(&channel_id).cloned().ok_or(ApiError::NotFound("channel"))?;
+        require_member(&store, &ch.server_id, &actor.id)?;
+        if !store.role(&ch.server_id, &actor.id).is_some_and(Role::can_manage) {
+            return Err(ApiError::Forbidden("only server owners and admins can edit channels"));
+        }
+        if let Some(raw) = body.name.as_deref() {
+            ch.name = if ch.kind == ChannelKind::Text { slug(raw)? } else { clean_text(raw, 32, "channel name")? };
+        }
+        if let Some(raw) = body.topic.as_deref() {
+            ch.topic = raw.trim().chars().take(180).collect();
+        }
+        if let Some(raw) = body.category.as_deref() {
+            let trimmed: String = raw.trim().chars().take(32).collect();
+            ch.category = (!trimmed.is_empty()).then_some(trimmed);
+        }
+        if let Some(vis) = body.visibility { ch.visibility = vis; }
+        if let Some(ro) = body.read_only { ch.read_only = ro; }
+        if let Some(secs) = body.slowmode_seconds { ch.slowmode_seconds = secs; }
+        store.channels.insert(ch.id.clone(), ch.clone());
+        let detail = format!("vis={:?},ro={},slow={}s", ch.visibility, ch.read_only, ch.slowmode_seconds);
+        record_audit(&mut store, &ch.server_id, &actor, "channel_update", &ch.id, &ch.name, detail);
+        ch
+    };
+    state.persist();
+    state.emit(Event::ChannelUpdate { server_id: updated.server_id.clone(), channel: updated.clone() });
+    Ok(Json(updated))
 }

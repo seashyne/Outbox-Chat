@@ -42,6 +42,10 @@ fn ensure_dm_channel(store: &mut Store, a: &str, b: &str) -> Channel {
         name: "แชทส่วนตัว".into(),
         kind: ChannelKind::Text,
         topic: String::new(),
+        category: None,
+        visibility: crate::model::ChannelVisibility::Public,
+        read_only: false,
+        slowmode_seconds: 0,
         position: 0,
         created_at: now(),
     };

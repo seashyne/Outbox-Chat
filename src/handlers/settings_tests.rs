@@ -159,6 +159,7 @@ async fn test_channel_delete_and_server_leave() {
             name: "extra-channel".into(),
             kind: ChannelKind::Text,
             topic: "topic".into(),
+            category: None,
         }),
     )
     .await

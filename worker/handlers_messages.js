@@ -3,6 +3,7 @@
  * for the OutboxHub Durable Object.
  */
 
+import { validateAttachments } from "./handlers_files.js";
 import {
   CORS_HEADERS,
   HttpError,
@@ -14,42 +15,6 @@ import {
 } from "./utils.js";
 
 const ALLOWED_REACTIONS = ["+1", "Like", "Ack", "Done", "Help", "Idea"];
-const ALLOWED_MIMES = [
-  "image/png",
-  "image/jpeg",
-  "image/webp",
-  "image/gif",
-  "application/pdf",
-  "text/plain",
-  "application/zip",
-  "application/json",
-];
-
-function validateAttachments(raw) {
-  if (raw === undefined || raw === null) return [];
-  if (!Array.isArray(raw)) throw new HttpError(400, "attachments must be an array");
-  if (raw.length > 4) throw new HttpError(400, "maximum 4 attachments per message");
-  const out = [];
-  for (const item of raw) {
-    if (!item || typeof item !== "object") throw new HttpError(400, "invalid attachment");
-    const mime = String(item.mime || "").trim().toLowerCase();
-    if (!ALLOWED_MIMES.includes(mime)) throw new HttpError(400, `unsupported file type: ${mime}`);
-    const name = cleanText(item.name, 80, "attachment name");
-    if (name.includes("/") || name.includes("\\")) throw new HttpError(400, "invalid attachment filename");
-    const data = String(item.data_url || "").trim();
-    const prefix = `data:${mime};base64,`;
-    if (!data.startsWith(prefix) || data.length > 620000 || /[\x00-\x20"<]/.test(data)) {
-      throw new HttpError(400, "invalid or oversized attachment data");
-    }
-    const approxBytes = Math.floor(((data.length - prefix.length) * 3) / 4);
-    if (approxBytes > 460000) throw new HttpError(400, "attachment exceeds 450 KB limit");
-    const size = typeof item.size === "number" && Number.isFinite(item.size) && item.size >= 0
-      ? Math.min(Math.floor(item.size), 460000)
-      : approxBytes;
-    out.push({ id: newId(), name, mime, size, data_url: data });
-  }
-  return out;
-}
 
 /** Fetches paginated message history for a text channel. */
 export function handleListMessages(hub, request, channelId, url) {
@@ -57,6 +22,7 @@ export function handleListMessages(hub, request, channelId, url) {
   const channel = hub.store.channels[channelId];
   if (!channel) throw new HttpError(404, "channel not found");
   hub.requireMember(channel.server_id, user.id);
+  if (!hub.canViewChannel(channel, user.id)) throw new HttpError(403, "you cannot access this channel");
   if (channel.kind !== "text") {
     throw new HttpError(400, "voice channels do not have a message history");
   }
@@ -102,8 +68,27 @@ export async function handlePostMessage(hub, request, channelId) {
   const channel = hub.store.channels[channelId];
   if (!channel) throw new HttpError(404, "channel not found");
   hub.requireMember(channel.server_id, user.id);
+  if (!hub.canViewChannel(channel, user.id)) throw new HttpError(403, "you cannot access this channel");
   if (channel.kind !== "text") {
     throw new HttpError(400, "cannot post messages to a voice channel");
+  }
+  const role = hub.role(channel.server_id, user.id);
+  const isManager = role === "owner" || role === "admin";
+  if (!channelId.startsWith("dm:") && hub.activeTimeoutUntil(channel.server_id, user.id)) {
+    throw new HttpError(403, "you are currently timed out in this server");
+  }
+  if (channel.read_only && !isManager) throw new HttpError(403, "this channel is read-only");
+  if ((channel.slowmode_seconds || 0) > 0 && !isManager) {
+    const nowSec = Math.floor(Date.now() / 1000);
+    const key = `${channelId}:${user.id}`;
+    const lastSec = hub.slowmodeLast.get(key);
+    if (lastSec !== undefined) {
+      const elapsed = nowSec - lastSec;
+      if (elapsed < channel.slowmode_seconds) {
+        throw new HttpError(429, `slowmode active: wait ${channel.slowmode_seconds - elapsed}s`);
+      }
+    }
+    hub.slowmodeLast.set(key, nowSec);
   }
 
   const replyTo =
@@ -144,8 +129,11 @@ export function handleDeleteMessage(hub, request, messageId) {
   if (!located) throw new HttpError(404, "message not found");
   const [channelId, index] = located;
 
-  const channel = hub.store.channels[channelId];
+  const parentId = hub.store.threads?.[channelId]?.channel_id || channelId;
+  const channel = hub.store.channels[parentId];
   if (!channel) throw new HttpError(404, "channel not found");
+  hub.requireMember(channel.server_id, user.id);
+  if (!hub.canViewChannel(channel, user.id)) throw new HttpError(403, "you cannot access this channel");
 
   const message = hub.store.messages[channelId][index];
   const userRole = hub.role(channel.server_id, user.id);
@@ -180,9 +168,11 @@ export async function handleToggleReaction(hub, request, messageId) {
   if (!located) throw new HttpError(404, "message not found");
   const [channelId, index] = located;
 
-  const channel = hub.store.channels[channelId];
+  const parentId = hub.store.threads?.[channelId]?.channel_id || channelId;
+  const channel = hub.store.channels[parentId];
   if (!channel) throw new HttpError(404, "channel not found");
   hub.requireMember(channel.server_id, user.id);
+  if (!hub.canViewChannel(channel, user.id)) throw new HttpError(403, "you cannot access this channel");
 
   const message = hub.store.messages[channelId]?.[index];
   if (!message) throw new HttpError(404, "message not found");
@@ -216,9 +206,11 @@ export function handleVoiceJoin(hub, request, channelId) {
     throw new HttpError(400, "voice requires an active WebSocket connection");
   }
 
-  const channel = hub.store.channels[channelId];
+  const parentId = hub.store.threads?.[channelId]?.channel_id || channelId;
+  const channel = hub.store.channels[parentId];
   if (!channel) throw new HttpError(404, "channel not found");
   hub.requireMember(channel.server_id, user.id);
+  if (!hub.canViewChannel(channel, user.id)) throw new HttpError(403, "you cannot access this channel");
   if (channel.kind !== "voice" && !channel.id.startsWith("dm:")) throw new HttpError(400, "not a voice channel");
 
   for (const { serverId, channelId: leftCid, users } of hub.leaveAllVoice(user.id)) {

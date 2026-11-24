@@ -122,18 +122,24 @@ export function renderSidebar() {
       ${canCreate ? `<button class="icon-btn" data-action="create-channel" title="${escapeHtml(t('sidebar.addChannel'))}" aria-label="${escapeHtml(t('sidebar.addChannel'))}">${ICONS.plus}</button>` : ''}
     </span>`;
 
-  const textChannels = server.channels.filter((c) => c.kind === 'text');
-  const voiceChannels = server.channels.filter((c) => c.kind === 'voice');
+  const groups = new Map();
+  for (const ch of server.channels) {
+    const key = ch.category || (ch.kind === 'text' ? '__text__' : '__voice__');
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(ch);
+  }
   const channelRow = (c) => {
     const active = c.id === state.currentChannelId || c.id === state.voiceChannelId;
     const voiceUsers = state.voice[c.id] || [];
     const unread = state.unread.has(c.id);
     const mention = state.mentions.has(c.id);
+    const badges = `${c.visibility === 'admin' ? `<span class="ch-badges" title="${escapeHtml(t('chEdit.visAdmin'))}">${ICONS.lock}</span>` : ''}${c.read_only ? `<span class="ch-badges" title="${escapeHtml(t('perm.readOnlyNotice'))}">${ICONS.megaphone}</span>` : ''}`;
     return `
       <div class="channel-row ${active ? 'active' : ''}">
         <button class="channel-item ${active ? 'active' : ''} ${unread ? 'unread' : ''}" data-action="channel" data-id="${escapeHtml(c.id)}">
           <span class="hash">${c.kind === 'text' ? '#' : ICONS.voice}</span>
           <span class="ch-name">${escapeHtml(c.name)}</span>
+          ${badges}
           ${mention ? '<span class="mention-badge">1</span>' : unread ? '<span class="unread-dot"></span>' : ''}
           ${voiceUsers.length ? `<span class="voice-count">${voiceUsers.length}</span>` : ''}
         </button>
@@ -144,27 +150,29 @@ export function renderSidebar() {
       </div>
       ${voiceUsers.map((id) => {
         const vp = resolveProfile(id, server);
-        return `
-        <button class="voice-user" data-action="profile" data-id="${escapeHtml(id)}">
-          ${avatar(vp, 'xs')} ${escapeHtml(vp.display_name)}
-        </button>`;
+        return `<button class="voice-user" data-action="profile" data-id="${escapeHtml(id)}">${avatar(vp, 'xs')} ${escapeHtml(vp.display_name)}</button>`;
       }).join('')}`;
   };
-  const group = (key, label, channels) => {
+  const group = (key, label, channels, kind = 'text') => {
     const collapsed = state.collapsed.has(key);
     return `
       <div class="channel-group">
         <div class="group-head">
-          <button class="group-toggle" data-action="toggle-group" data-group="${key}" title="${escapeHtml(collapsed ? t('sidebar.expandGroup') : t('sidebar.collapseGroup'))}">
+          <button class="group-toggle" data-action="toggle-group" data-group="${escapeHtml(key)}" title="${escapeHtml(collapsed ? t('sidebar.expandGroup') : t('sidebar.collapseGroup'))}">
             <span class="caret ${collapsed ? 'closed' : ''}">${ICONS.caret}</span>${escapeHtml(label)}${collapsed && channels.length ? `<span class="group-count">${channels.length}</span>` : ''}
           </button>
-          ${canCreate ? `<button data-action="create-channel" data-kind="${key}" title="${escapeHtml(t('sidebar.addChannel'))}" aria-label="${escapeHtml(t('sidebar.addChannel'))}">+</button>` : ''}
+          ${canCreate ? `<button data-action="create-channel" data-kind="${kind === 'voice' ? 'voice' : 'text'}" title="${escapeHtml(t('sidebar.addChannel'))}" aria-label="${escapeHtml(t('sidebar.addChannel'))}">+</button>` : ''}
         </div>
         ${collapsed ? '' : (channels.map(channelRow).join('') || `<div class="channel-empty">${escapeHtml(t('sidebar.noChannels'))}</div>`)}
       </div>`;
   };
 
-  $('channelList').innerHTML = group('text', t('sidebar.textChannels'), textChannels) + group('voice', t('sidebar.voiceChannels'), voiceChannels);
+  let groupsHtml = group('text', t('sidebar.textChannels'), groups.get('__text__') || [], 'text') +
+    group('voice', t('sidebar.voiceChannels'), groups.get('__voice__') || [], 'voice');
+  groups.delete('__text__');
+  groups.delete('__voice__');
+  for (const [cat, list] of groups.entries()) groupsHtml += group(`cat:${cat}`, cat, list, 'text');
+  $('channelList').innerHTML = groupsHtml;
   renderVoicePanel();
   renderVoiceBar();
 }
@@ -198,6 +206,7 @@ export function renderHeader() {
       <span class="topic">${escapeHtml(peer ? t('friends.dmTopic', { username: peer.username }) : t('friends.manageHint'))}</span>
       <span class="spacer"></span>
       ${peer && state.dmChannel ? `<div class="header-actions">
+        <button class="icon-btn" data-action="open-media" title="${escapeHtml(t('gallery.headerTitle'))}" aria-label="${escapeHtml(t('gallery.headerTitle'))}">${ICONS.gallery}</button>
         <button class="icon-btn" data-action="open-pins" title="${escapeHtml(t('chat.pinsTitle'))}" aria-label="${escapeHtml(t('chat.pinsTitle'))}">${ICONS.pin}</button>
         <button class="icon-btn" data-action="dm-call-voice" title="${escapeHtml(t('dm.voiceCall'))}" aria-label="${escapeHtml(t('dm.voiceCall'))}">${ICONS.phone}</button>
         <button class="icon-btn" data-action="dm-call-video" title="${escapeHtml(t('dm.videoCall'))}" aria-label="${escapeHtml(t('dm.videoCall'))}">${ICONS.video}</button>
@@ -216,7 +225,10 @@ export function renderHeader() {
     <span class="spacer"></span>
     <div class="header-actions">
       ${state.searchOpen ? `<input id="searchInput" class="search-input" type="text" placeholder="${escapeHtml(t('header.searchPlaceholder'))}" value="${escapeHtml(state.search)}" aria-label="${escapeHtml(t('header.searchAria'))}" />` : ''}
-      <button class="icon-btn" data-action="open-pins" title="${escapeHtml(t('chat.pinsTitle'))}" aria-label="${escapeHtml(t('chat.pinsTitle'))}">${ICONS.pin}</button>
+      ${channel.kind === 'text' ? `
+        <button class="icon-btn" data-action="open-threads" title="${escapeHtml(t('thread.headerTitle'))}" aria-label="${escapeHtml(t('thread.headerTitle'))}">${ICONS.thread}</button>
+        <button class="icon-btn" data-action="open-media" title="${escapeHtml(t('gallery.headerTitle'))}" aria-label="${escapeHtml(t('gallery.headerTitle'))}">${ICONS.gallery}</button>
+        <button class="icon-btn" data-action="open-pins" title="${escapeHtml(t('chat.pinsTitle'))}" aria-label="${escapeHtml(t('chat.pinsTitle'))}">${ICONS.pin}</button>` : ''}
       <button class="icon-btn ${state.searchOpen ? 'active' : ''}" data-action="toggle-search" title="${escapeHtml(t('header.searchTitle'))}" aria-label="${escapeHtml(t('header.searchAria'))}">${ICONS.search}</button>
       <button class="icon-btn ${state.membersVisible ? 'active' : ''}" data-action="toggle-members" title="${escapeHtml(t('header.membersTitle'))}" aria-label="${escapeHtml(t('header.membersAria'))}">${ICONS.members}</button>
     </div>`;

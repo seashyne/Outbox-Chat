@@ -141,12 +141,14 @@ export function renderMessages() {
           <div class="content">${formatContent(m.content, query)}${m.edited_at ? `<span class="edited">${escapeHtml(t('chat.edited'))}</span>` : ''}</div>
           ${renderLinkPreviews(m.content)}
           ${renderMessageAttachments(m.attachments)}
+          ${m.thread_id ? `<button type="button" class="thread-pill" data-action="open-msg-thread" data-id="${escapeHtml(m.id)}">${ICONS.thread}<span>${escapeHtml(t('thread.badgeLabel', { title: m.thread_title || t('thread.defaultTitle'), count: m.thread_count || 0 }))}</span></button>` : ''}
           ${reactionHtml}
         </div>
         <div class="msg-toolbar">
           <button data-action="quick-react" data-id="${escapeHtml(m.id)}" title="${escapeHtml(t('chat.quickReact'))}">+1</button>
           <button data-action="react-more" data-id="${escapeHtml(m.id)}" title="${escapeHtml(t('chat.addReaction'))}">${ICONS.plus}</button>
           <button data-action="reply" data-id="${escapeHtml(m.id)}" title="${escapeHtml(t('chat.reply'))}">${ICONS.reply}</button>
+          <button data-action="open-msg-thread" data-id="${escapeHtml(m.id)}" title="${escapeHtml(t('thread.startOrView'))}">${ICONS.thread}</button>
           <button data-action="pin-message" data-id="${escapeHtml(m.id)}" title="${escapeHtml(t('chat.pinMessage'))}">${ICONS.pin}</button>
           ${state.me && author.id === state.me.id ? `<button data-action="edit-message" data-id="${escapeHtml(m.id)}" title="${escapeHtml(t('chat.editMessage'))}">${ICONS.edit}</button>` : ''}
           <button data-action="copy-message" data-id="${escapeHtml(m.id)}" title="${escapeHtml(t('chat.copyMessage'))}">${ICONS.copy}</button>

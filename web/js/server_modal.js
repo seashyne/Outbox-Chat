@@ -7,6 +7,7 @@ import { selectServer } from './actions.js';
 import { api, toast } from './api.js';
 import { t } from './i18n.js';
 import { openModal } from './modals.js';
+import { openAuditLogModal, openServerBansModal } from './moderation_ui.js';
 import { renderHeader, renderMembers, renderRail, renderSidebar } from './render_shell.js';
 import {
   DEFAULT_ROLES_CONFIG,
@@ -157,6 +158,10 @@ export function openServerSettings(initialTab = 'general') {
     </div>
     <div id="srvPaneMembers" class="srv-members-list" ${initialTab !== 'members' ? 'hidden' : ''}>
       <p class="srv-role-hint">${escapeHtml(server.owner_id === state.me?.id ? t('srv.ownerHint') : t('srv.nonOwnerHint'))}</p>
+      ${canManage ? `<div class="srv-mod-bar">
+        <button type="button" class="ghost-btn" data-action="srv-open-bans">${escapeHtml(t('mod.openBansBtn'))}</button>
+        <button type="button" class="ghost-btn" data-action="srv-open-audit">${escapeHtml(t('mod.openAuditBtn'))}</button>
+      </div>` : ''}
       <div id="srvMembersRows">${renderMemberRolesList(server)}</div>
     </div>`;
 
@@ -194,6 +199,13 @@ export function openServerSettings(initialTab = 'general') {
       $('srvPaneMembers').hidden = tab !== 'members';
       $('modalSubmit').hidden = !canManage || tab !== 'general';
     });
+  });
+
+  $('srvPaneMembers')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    if (btn.dataset.action === 'srv-open-bans') openServerBansModal(server.id);
+    else if (btn.dataset.action === 'srv-open-audit') openAuditLogModal(server.id);
   });
 
   $('srvMembersRows')?.addEventListener('change', async (e) => {

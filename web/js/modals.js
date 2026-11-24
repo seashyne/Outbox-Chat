@@ -92,13 +92,15 @@ export function openCreateChannel(kind = 'text') {
          <option value="text" ${kind === 'text' ? 'selected' : ''}>${escapeHtml(t('modal.channelText'))}</option>
          <option value="voice" ${kind === 'voice' ? 'selected' : ''}>${escapeHtml(t('modal.channelVoice'))}</option>
        </select>` +
+      field('category', escapeHtml(t('chEdit.categoryLabel')), t('chEdit.categoryPh')) +
       field('topic', escapeHtml(t('modal.channelTopic')), t('modal.channelTopicPh')),
     onSubmit: async () => {
       const name = $('f_name').value.trim();
       if (!name) throw new Error(t('modal.errChannelName'));
+      const category = $('f_category').value.trim() || undefined;
       const channel = await api(`/servers/${encodeURIComponent(state.currentServerId)}/channels`, {
         method: 'POST',
-        body: JSON.stringify({ name, kind: $('f_kind').value, topic: $('f_topic').value.trim() }),
+        body: JSON.stringify({ name, kind: $('f_kind').value, topic: $('f_topic').value.trim(), category }),
       });
       const server = currentServer();
       if (!server.channels.some((c) => c.id === channel.id)) server.channels.push(channel);

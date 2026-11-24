@@ -4,9 +4,9 @@
 //! keeping a relational table shape (`users`, `servers`, `channels`, `messages`, `members`).
 
 use super::{
-    new_token, now, Channel, ChannelKind, FriendEdge, Id, Message, MessageView, ReactionView,
-    ReplyPreview, Role, Server, ServerInvite, ServerProfile, ServerRolesConfig, ServerSticker,
-    User, UserSettings,
+    new_token, now, AuditLogEntry, Channel, ChannelKind, ChannelThread, ChannelVisibility,
+    FriendEdge, Id, Message, MessageView, ReactionView, ReplyPreview, Role, Server, ServerBan,
+    ServerInvite, ServerProfile, ServerRolesConfig, ServerSticker, User, UserSettings,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -34,9 +34,24 @@ pub struct Store {
     /// server_id -> custom server stickers
     #[serde(default)]
     pub stickers: HashMap<Id, Vec<ServerSticker>>,
+    /// thread_id -> ChannelThread
+    #[serde(default)]
+    pub threads: HashMap<Id, ChannelThread>,
+    /// server_id -> (user_id -> ServerBan)
+    #[serde(default)]
+    pub bans: HashMap<Id, HashMap<Id, ServerBan>>,
+    /// "{server_id}:{user_id}" -> ISO timestamp until muted
+    #[serde(default)]
+    pub timeouts: HashMap<String, String>,
+    /// server_id -> audit log entries (newest last)
+    #[serde(default)]
+    pub audit_logs: HashMap<Id, Vec<AuditLogEntry>>,
     /// In-memory lookup: message_id -> channel_id (rebuilt on load/seed).
     #[serde(skip)]
     pub message_index: HashMap<Id, Id>,
+    /// In-memory cooldown tracker: "{channel_id}:{user_id}" -> unix seconds of last message.
+    #[serde(skip)]
+    pub slowmode_last: HashMap<String, i64>,
 }
 
 impl Store {
@@ -112,6 +127,17 @@ impl Store {
                 users: users.clone(),
             })
             .collect();
+        let thread_meta = self.threads.values().find_map(|t| {
+            if t.parent_message_id.as_deref() != Some(&message.id) {
+                return None;
+            }
+            let count = self.messages.get(&t.id).map(|l| l.len()).unwrap_or(0);
+            Some((t.id.clone(), t.title.clone(), count))
+        });
+        let (thread_id, thread_title, thread_count) = match thread_meta {
+            Some((id, title, count)) => (Some(id), Some(title), count),
+            None => (None, None, 0),
+        };
         reactions.sort_by(|a, b| a.emoji.cmp(&b.emoji));
         Some(MessageView {
             id: message.id.clone(),
@@ -124,7 +150,23 @@ impl Store {
             reactions,
             attachments: message.attachments.clone(),
             pinned: message.pinned,
+            thread_id,
+            thread_title,
+            thread_count,
         })
+    }
+
+    /// Returns true if `user_id` is allowed to see and read `channel`.
+    pub fn can_view_channel(&self, channel: &Channel, user_id: &str) -> bool {
+        if !self.is_member(&channel.server_id, user_id) {
+            return false;
+        }
+        if channel.visibility == ChannelVisibility::Admin {
+            return self
+                .role(&channel.server_id, user_id)
+                .is_some_and(Role::can_manage);
+        }
+        true
     }
 
     /// Looks up a channel by ID.
@@ -198,6 +240,10 @@ impl Store {
                 name: (*name).into(),
                 kind: *kind,
                 topic: (*topic).into(),
+                category: None,
+                visibility: ChannelVisibility::Public,
+                read_only: false,
+                slowmode_seconds: 0,
                 position: i as i64,
                 created_at: now(),
             };

@@ -91,12 +91,21 @@ export function t(key, vars = {}) {
 export function translateApiError(raw) {
   const msg = String(raw || '').trim();
   if (!msg) return t('error.requestFailed');
+  const lower = msg.toLowerCase();
+  if (lower.startsWith('slowmode active: wait ')) {
+    const secs = msg.slice('slowmode active: wait '.length).replace(/s$/i, '');
+    return t('perm.slowmodeWait', { secs });
+  }
   const map = {
     'invalid username or password': 'auth.failedLogin',
     'username is already taken': 'auth.failedRegister',
     'session expired': 'auth.sessionExpired',
+    'this channel is read-only': 'perm.readOnlyNotice',
+    'you are currently timed out in this server': 'mod.timedOutNotice',
+    'you are banned from this server': 'mod.bannedError',
+    'you cannot access this channel': 'perm.hiddenError',
   };
-  const key = map[msg.toLowerCase()];
+  const key = map[lower];
   return key ? t(key) : msg;
 }
 

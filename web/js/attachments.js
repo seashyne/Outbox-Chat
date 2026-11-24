@@ -5,14 +5,18 @@
 
 import { toast } from './api.js';
 import { t } from './i18n.js';
+import { resolveMediaUrl, uploadBinaryAttachment } from './media_gallery.js';
 import { openModal } from './modals.js';
 import { resizeImageFile } from './profile_helpers.js';
 import { $, ICONS, escapeHtml } from './state.js';
 
 const MAX_FILES = 4;
-const MAX_RAW_BYTES = 450000;
+const MAX_INLINE_BYTES = 360000;
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 const ALLOWED_MIMES = [
   'image/png', 'image/jpeg', 'image/webp', 'image/gif',
+  'audio/webm', 'audio/ogg', 'audio/mp4', 'audio/mpeg', 'audio/wav', 'audio/aac',
+  'video/mp4', 'video/webm', 'video/quicktime',
   'application/pdf', 'text/plain', 'application/zip', 'application/json',
 ];
 
@@ -31,6 +35,7 @@ export function clearPendingAttachments() {
 
 function fmtSize(bytes) {
   if (!bytes || bytes < 1024) return `${bytes || 0} B`;
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   return `${(bytes / 1024).toFixed(bytes < 10240 ? 1 : 0)} KB`;
 }
 
@@ -44,17 +49,24 @@ function readAsDataUrl(file) {
 }
 
 function normalizeMime(file) {
-  const mime = (file.type || '').toLowerCase();
+  const mime = (file.type || '').split(';')[0].trim().toLowerCase();
   if (ALLOWED_MIMES.includes(mime)) return mime;
   const name = (file.name || '').toLowerCase();
   if (name.endsWith('.txt')) return 'text/plain';
   if (name.endsWith('.json')) return 'application/json';
   if (name.endsWith('.pdf')) return 'application/pdf';
   if (name.endsWith('.zip')) return 'application/zip';
+  if (name.endsWith('.mp3')) return 'audio/mpeg';
+  if (name.endsWith('.wav')) return 'audio/wav';
+  if (name.endsWith('.ogg')) return 'audio/ogg';
+  if (name.endsWith('.m4a')) return 'audio/mp4';
+  if (name.endsWith('.mp4')) return 'video/mp4';
+  if (name.endsWith('.webm')) return 'video/webm';
+  if (name.endsWith('.mov')) return 'video/quicktime';
   return mime;
 }
 
-/** Processes selected/pasted/dropped files into compact data URLs ready for upload. */
+/** Processes selected/pasted/dropped files into compact data URLs or 5 MB binary uploads. */
 export async function addAttachmentFiles(fileList) {
   const files = [...(fileList || [])];
   for (const file of files) {
@@ -67,24 +79,32 @@ export async function addAttachmentFiles(fileList) {
       toast(t('chat.attachBadType'), 'err');
       continue;
     }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      toast(t('chat.attachTooBig'), 'err');
+      continue;
+    }
     try {
       let dataUrl;
       let outMime = mime;
-      if (mime === 'image/png' || mime === 'image/jpeg' || mime === 'image/webp') {
-        dataUrl = await resizeImageFile(file, 1280, 1280, 360000);
+      let outSize = file.size || 0;
+      if ((mime === 'image/png' || mime === 'image/jpeg' || mime === 'image/webp') && file.size <= MAX_INLINE_BYTES) {
+        dataUrl = await resizeImageFile(file, 1280, 1280, MAX_INLINE_BYTES);
         const match = dataUrl.match(/^data:([^;]+);base64,/);
         if (match) outMime = match[1];
-      } else {
-        if (file.size > MAX_RAW_BYTES) {
-          toast(t('chat.attachTooBig'), 'err');
-          continue;
-        }
+        outSize = Math.min(file.size || Math.floor(dataUrl.length * 0.75), MAX_INLINE_BYTES);
+      } else if (!mime.startsWith('audio/') && !mime.startsWith('video/') && file.size <= MAX_INLINE_BYTES) {
         dataUrl = await readAsDataUrl(file);
+      } else {
+        toast(t('att.uploading'));
+        const uploaded = await uploadBinaryAttachment(file, (file.name || 'file').slice(0, 80));
+        dataUrl = uploaded.url;
+        outMime = uploaded.mime || mime;
+        outSize = uploaded.size || file.size;
       }
       pending.push({
         name: (file.name || 'file').slice(0, 80),
         mime: outMime,
-        size: Math.min(file.size || Math.floor(dataUrl.length * 0.75), 460000),
+        size: outSize,
         data_url: dataUrl,
       });
     } catch {
@@ -109,8 +129,9 @@ export function renderPendingAttachments() {
   box.hidden = false;
   box.innerHTML = pending.map((att, idx) => {
     const isImg = att.mime.startsWith('image/');
+    const src = resolveMediaUrl(att.data_url);
     return `<div class="att-chip">
-      ${isImg ? `<img src="${escapeHtml(att.data_url)}" alt="${escapeHtml(att.name)}" />` : `<span class="att-file-ico">${ICONS.file}</span>`}
+      ${isImg ? `<img src="${escapeHtml(src)}" alt="${escapeHtml(att.name)}" />` : `<span class="att-file-ico">${ICONS.file}</span>`}
       <span class="att-chip-meta"><b>${escapeHtml(att.name)}</b><small>${fmtSize(att.size)}</small></span>
       <button type="button" class="att-chip-rm" data-rm-att="${idx}" aria-label="${escapeHtml(t('common.close'))}">${ICONS.close}</button>
     </div>`;
@@ -126,19 +147,35 @@ export function removePendingAttachment(idx) {
   if (sendBtn && input) sendBtn.disabled = !input.value.trim() && pending.length === 0;
 }
 
-/** Renders image previews and downloadable file cards inside a message bubble. */
+/** Renders image previews, audio/video players, and downloadable file cards inside a message bubble. */
 export function renderMessageAttachments(attachments = []) {
   if (!Array.isArray(attachments) || !attachments.length) return '';
   return `<div class="msg-attachments">${attachments.map((att) => {
-    const url = String(att.data_url || '');
-    const safe = url.startsWith('data:') && !/[<"'\x00-\x1F\x7F]/.test(url);
+    const raw = String(att.data_url || '');
+    const safe = (raw.startsWith('data:') || raw.startsWith('/api/files/')) && !/[<"'\x00-\x1F\x7F]/.test(raw);
     if (!safe) return '';
-    if (String(att.mime || '').startsWith('image/')) {
+    const url = resolveMediaUrl(raw);
+    const mime = String(att.mime || '');
+    if (mime.startsWith('image/')) {
       return `<button type="button" class="att-img-btn" data-action="preview-attachment" data-url="${escapeHtml(url)}" data-name="${escapeHtml(att.name)}">
         <img src="${escapeHtml(url)}" alt="${escapeHtml(att.name)}" loading="lazy" />
       </button>`;
     }
-    return `<a class="att-file-card" href="${escapeHtml(url)}" download="${escapeHtml(att.name)}">
+    if (mime.startsWith('audio/')) {
+      return `<div class="att-audio-card">
+        <div class="att-audio-meta"><span>${ICONS.mic} <b>${escapeHtml(att.name)}</b></span><small>${fmtSize(att.size)}</small></div>
+        <audio controls loading="lazy" preload="metadata" src="${escapeHtml(url)}"></audio>
+      </div>`;
+    }
+    if (mime.startsWith('video/')) {
+      return `<div class="att-video-card">
+        <video controls loading="lazy" preload="metadata" width="360" height="202" src="${escapeHtml(url)}"></video>
+        <div class="att-media-foot"><span>${escapeHtml(att.name)} · ${fmtSize(att.size)}</span>
+          <a href="${escapeHtml(url)}" download="${escapeHtml(att.name)}" target="_blank" rel="noopener">${escapeHtml(t('chat.downloadFile'))}</a>
+        </div>
+      </div>`;
+    }
+    return `<a class="att-file-card" href="${escapeHtml(url)}" download="${escapeHtml(att.name)}" target="_blank" rel="noopener">
       ${ICONS.file}<span><b>${escapeHtml(att.name)}</b><small>${fmtSize(att.size)}</small></span>
     </a>`;
   }).join('')}</div>`;
@@ -146,7 +183,8 @@ export function renderMessageAttachments(attachments = []) {
 
 /** Opens a large image lightbox preview when clicking an image attachment. */
 export function openAttachmentPreview(url, name) {
-  if (!url || !url.startsWith('data:image/')) return;
+  const safeUrl = resolveMediaUrl(url);
+  if (!safeUrl || !(safeUrl.startsWith('data:image/') || safeUrl.includes('/api/files/'))) return;
   openModal({
     title: name || t('chat.imagePreview'),
     desc: '',

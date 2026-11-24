@@ -83,6 +83,22 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, user: User) {
                             continue;
                         }
                     }
+                    let scoped_channel = match &event {
+                        Event::ChannelCreate { channel, .. }
+                        | Event::ChannelUpdate { channel, .. } => Some(channel.id.as_str()),
+                        Event::MessageCreate { message, .. }
+                        | Event::MessageUpdate { message, .. } => Some(message.channel_id.as_str()),
+                        Event::MessageDelete { channel_id, .. }
+                        | Event::Typing { channel_id, .. }
+                        | Event::ThreadMessageCreate { channel_id, .. } => Some(channel_id.as_str()),
+                        Event::ThreadCreate { thread, .. } => Some(thread.channel_id.as_str()),
+                        _ => None,
+                    };
+                    if let Some(channel_id) = scoped_channel {
+                        if !event_state.can_view_channel(channel_id, &event_user) {
+                            continue;
+                        }
+                    }
                     if let Ok(payload) = serde_json::to_string(&event) {
                         if event_tx.send(payload).is_err() {
                             break;

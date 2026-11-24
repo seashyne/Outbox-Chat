@@ -141,6 +141,10 @@ pub(crate) fn build_template_channels(server_id: &str, spec: &TemplateSpec) -> V
                 name: (*name).into(),
                 kind: *kind,
                 topic: (*topic).into(),
+                category: None,
+                visibility: crate::model::ChannelVisibility::Public,
+                read_only: false,
+                slowmode_seconds: 0,
                 position,
                 created_at: ts.clone(),
             }

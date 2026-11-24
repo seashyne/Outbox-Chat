@@ -166,7 +166,14 @@ export function openProfile(userId, anchor) {
         ${!user.bot && isOutgoing ? `<div class="pp-value" style="margin-top:6px;color:var(--muted)">${escapeHtml(t('profile.friendRequested'))}</div>` : ''}
         <button class="pp-action ghost" data-action="mention-user" data-id="${escapeHtml(userId)}">${escapeHtml(t('profile.mention'))}</button>
         <button class="pp-action ghost" data-action="reply-to-user" data-id="${escapeHtml(userId)}">${escapeHtml(t('profile.replyLast'))}</button>
-        ${canAdjustRole ? `<button class="pp-action ghost" data-action="toggle-member-role" data-id="${escapeHtml(userId)}" data-role="${nextRole}">${escapeHtml(t('profile.setRole', { role: nextMeta.label }))}</button>` : ''}`}
+        ${canAdjustRole ? `<button class="pp-action ghost" data-action="toggle-member-role" data-id="${escapeHtml(userId)}" data-role="${nextRole}">${escapeHtml(t('profile.setRole', { role: nextMeta.label }))}</button>` : ''}
+        ${server && ['owner', 'admin'].includes(server.role) && userId !== server.owner_id && (server.role === 'owner' || targetRole === 'member') ? `
+          <div class="pp-divider"></div>
+          <div class="pp-mod-row">
+            <button class="pp-action ghost" data-action="mod-timeout" data-id="${escapeHtml(userId)}" data-name="${escapeHtml(user.display_name)}">${escapeHtml(t('mod.timeoutBtn'))}</button>
+            <button class="pp-action ghost" data-action="mod-kick" data-id="${escapeHtml(userId)}" data-name="${escapeHtml(user.display_name)}">${escapeHtml(t('mod.kickBtn'))}</button>
+            <button class="pp-action danger" data-action="mod-ban" data-id="${escapeHtml(userId)}" data-name="${escapeHtml(user.display_name)}">${escapeHtml(t('mod.banBtn'))}</button>
+          </div>` : ''}`}
     </div>`;
   openOverlay('profile', anchor);
   positionPopout(anchor, node);
@@ -243,6 +250,7 @@ export function openChannelInfo(channelId, anchor) {
     <button data-action="channel-mark-read" data-id="${escapeHtml(channelId)}">${ICONS.check} <span>${escapeHtml(t('menu.markRead'))}</span></button>
     ${canManage ? `
       <div class="dd-sep"></div>
+      <button data-action="channel-edit" data-id="${escapeHtml(channelId)}">${ICONS.settings} <span>${escapeHtml(t('chEdit.menuEdit'))}</span></button>
       <button class="danger" data-action="channel-delete" data-id="${escapeHtml(channelId)}">${ICONS.trash} <span>${escapeHtml(t('menu.deleteChannel'))}</span></button>` : ''}`, anchor);
 }
 

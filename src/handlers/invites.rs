@@ -167,6 +167,9 @@ pub async fn join_by_invite(
             return Err(ApiError::BadRequest("invite link has reached max uses".into()));
         }
         let srv = store.servers.get(&inv.server_id).cloned().ok_or(ApiError::NotFound("server"))?;
+        if store.bans.get(&srv.id).is_some_and(|b| b.contains_key(&user.id)) {
+            return Err(ApiError::Forbidden("you are banned from this server"));
+        }
         let already = store.is_member(&srv.id, &user.id);
         let mut joined = None;
         if !already {

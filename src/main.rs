@@ -49,6 +49,24 @@ async fn main() -> std::io::Result<()> {
             "/servers/{id}/members/{user_id}/role",
             patch(handlers::update_member_role),
         )
+        .route(
+            "/servers/{id}/members/{user_id}/kick",
+            post(handlers::kick_member),
+        )
+        .route(
+            "/servers/{id}/members/{user_id}/ban",
+            post(handlers::ban_member),
+        )
+        .route(
+            "/servers/{id}/members/{user_id}/timeout",
+            post(handlers::timeout_member),
+        )
+        .route("/servers/{id}/bans", get(handlers::list_bans))
+        .route(
+            "/servers/{id}/bans/{user_id}",
+            delete(handlers::unban_member),
+        )
+        .route("/servers/{id}/audit", get(handlers::list_audit_logs))
         .route("/friends", get(handlers::list_friends))
         .route("/friends/request", post(handlers::request_friend))
         .route("/friends/{user_id}/accept", post(handlers::accept_friend))
@@ -66,7 +84,25 @@ async fn main() -> std::io::Result<()> {
             get(handlers::preview_invite).delete(handlers::delete_invite),
         )
         .route("/invites/{code}/join", post(handlers::join_by_invite))
-        .route("/channels/{id}", delete(handlers::delete_channel))
+        .route(
+            "/channels/{id}",
+            patch(handlers::update_channel).delete(handlers::delete_channel),
+        )
+        .route("/channels/{id}/media", get(handlers::list_channel_media))
+        .route(
+            "/channels/{id}/threads",
+            get(handlers::list_threads).post(handlers::create_thread),
+        )
+        .route(
+            "/threads/{id}/messages",
+            get(handlers::list_thread_messages).post(handlers::post_thread_message),
+        )
+        .route(
+            "/files",
+            post(handlers::upload_file)
+                .layer(axum::extract::DefaultBodyLimit::max(6 * 1024 * 1024)),
+        )
+        .route("/files/{id}", get(handlers::get_file))
         .route(
             "/channels/{id}/messages",
             get(handlers::list_messages).post(handlers::post_message),

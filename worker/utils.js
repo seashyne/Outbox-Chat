@@ -17,7 +17,7 @@ export const AVATAR_COLORS = [
 export const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Authorization, Content-Type",
+  "Access-Control-Allow-Headers": "Authorization, Content-Type, X-File-Name",
   "Access-Control-Max-Age": "86400",
 };
 
@@ -159,4 +159,15 @@ export function eventServerId(event) {
   }
   if (event.type === "server_create" || event.type === "server_update") return event.server.id;
   return event.server_id || null;
+}
+
+/** Returns channel ID scoped by channel/message/thread events for visibility checks. */
+export function eventScopedChannel(event) {
+  if (event.type === "channel_create" || event.type === "channel_update") return event.channel?.id || null;
+  if (event.type === "message_create" || event.type === "message_update") return event.message?.channel_id || null;
+  if (event.type === "thread_create") return event.thread?.channel_id || null;
+  if (event.type === "message_delete" || event.type === "typing" || event.type === "thread_message_create") {
+    return event.channel_id || null;
+  }
+  return null;
 }

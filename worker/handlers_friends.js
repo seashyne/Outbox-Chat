@@ -46,6 +46,10 @@ function ensureDmChannel(hub, a, b) {
     name: "แชทส่วนตัว",
     kind: "text",
     topic: "",
+    category: null,
+    visibility: "public",
+    read_only: false,
+    slowmode_seconds: 0,
     position: 0,
     created_at: nowIso(),
   };

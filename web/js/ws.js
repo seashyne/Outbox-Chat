@@ -11,6 +11,7 @@ import { t } from './i18n.js';
 import { handleMeetingWsEvent } from './meeting_ui.js';
 import { playNotifyChime, renderDmCallBanner, sendDesktopNotification } from './notify.js';
 import { nearBottom, renderMessages, scrollToBottom, updateJumpButton } from './render_chat.js';
+import { handleThreadCreateWs, handleThreadMessageWs } from './threads_ui.js';
 import {
   renderHeader,
   renderMembers,
@@ -119,6 +120,24 @@ export function handleEvent(event) {
       }
       break;
     }
+    case 'channel_update': {
+      const server = state.servers.find((s) => s.id === event.server_id);
+      if (server && event.channel) {
+        const idx = server.channels.findIndex((c) => c.id === event.channel.id);
+        if (idx !== -1) server.channels[idx] = event.channel;
+        else server.channels.push(event.channel);
+        renderSidebar();
+        renderHeader();
+        import('./composer.js').then((m) => m.syncComposerAccess()).catch(() => {});
+      }
+      break;
+    }
+    case 'thread_create':
+      handleThreadCreateWs(event.thread);
+      break;
+    case 'thread_message_create':
+      handleThreadMessageWs(event);
+      break;
     case 'channel_delete': {
       const server = state.servers.find((s) => s.id === event.server_id);
       if (server) {
@@ -171,6 +190,18 @@ export function handleEvent(event) {
     case 'member_leave': {
       const server = state.servers.find((s) => s.id === event.server_id);
       if (server) {
+        if (state.me && event.user_id === state.me.id) {
+          state.servers = state.servers.filter((s) => s.id !== event.server_id);
+          toast(t('mod.removedFromServer', { name: server.name }), 'err');
+          if (state.currentServerId === event.server_id) {
+            state.currentServerId = state.servers[0]?.id || null;
+            const next = state.servers[0];
+            state.currentChannelId = next?.channels.find((c) => c.kind === 'text')?.id || null;
+            renderAll();
+            loadMessages();
+          } else renderRail();
+          break;
+        }
         server.members = server.members.filter((m) => m.id !== event.user_id);
         renderMembers();
       }
@@ -179,24 +210,16 @@ export function handleEvent(event) {
     case 'user_update': {
       const updated = event.user;
       if (!updated) break;
-      if (state.me && state.me.id === updated.id) {
-        state.me = { ...state.me, ...updated };
-        renderUserPanel();
-      }
+      if (state.me?.id === updated.id) { state.me = { ...state.me, ...updated }; renderUserPanel(); }
       for (const s of state.servers) {
         const idx = s.members.findIndex((m) => m.id === updated.id);
         if (idx !== -1) s.members[idx] = { ...s.members[idx], ...updated };
       }
       let msgChanged = false;
       for (const m of state.messages) {
-        if (m.author && m.author.id === updated.id) {
-          m.author = { ...m.author, ...updated };
-          msgChanged = true;
-        }
+        if (m.author?.id === updated.id) { m.author = { ...m.author, ...updated }; msgChanged = true; }
       }
-      renderMembers();
-      renderVoicePanel();
-      renderSidebar();
+      renderMembers(); renderVoicePanel(); renderSidebar();
       if (msgChanged) renderMessages();
       break;
     }

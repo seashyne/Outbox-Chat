@@ -94,11 +94,13 @@
         <div class="reply-bar" id="replyBar" hidden></div>
         <div class="pending-att-bar" id="pendingAttachments" hidden></div>
         <div class="emoji-picker" id="emojiPicker" hidden></div>
-        <input id="chatFileInput" type="file" multiple accept="image/png,image/jpeg,image/webp,image/gif,.pdf,.txt,.zip,.json" hidden />
+        <div class="voice-rec-bar" id="voiceRecBar" hidden></div>
+        <input id="chatFileInput" type="file" multiple accept="image/png,image/jpeg,image/webp,image/gif,audio/*,video/*,.mp3,.wav,.ogg,.m4a,.mp4,.webm,.mov,.pdf,.txt,.zip,.json" hidden />
         <div class="composer" id="composer">
           <button type="button" class="composer-add" id="attachBtn" data-i18n-title="composer.attach" data-i18n-aria-label="composer.attach" title="แทรกรูปแบบข้อความ" aria-label="แทรกรูปแบบข้อความ">+</button>
           <textarea id="messageInput" rows="1" maxlength="2000" data-i18n-placeholder="composer.placeholder" data-i18n-aria-label="composer.inputAria" placeholder="ส่งข้อความ..." aria-label="พิมพ์ข้อความ" enterkeyhint="send" spellcheck="false"></textarea>
           <span class="char-count" id="charCount" hidden></span>
+          <button type="button" class="composer-mic" id="voiceNoteBtn" data-i18n-title="voiceNote.recordTitle" data-i18n-aria-label="voiceNote.recordTitle" title="อัดเสียงส่ง" aria-label="อัดเสียงส่ง"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-2.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg></button>
           <button type="button" class="send-btn" id="sendBtn" data-i18n-title="composer.sendTitle" data-i18n-aria-label="composer.sendAria" title="ส่งข้อความ (Enter)" aria-label="ส่งข้อความ"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
         </div>
         <div class="composer-hint">

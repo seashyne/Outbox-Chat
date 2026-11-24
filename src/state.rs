@@ -68,6 +68,22 @@ impl AppState {
             .unwrap_or(false)
     }
 
+    pub fn can_view_channel(&self, channel_or_thread_id: &str, user_id: &str) -> bool {
+        self.store
+            .read()
+            .map(|store| {
+                let target_id = store
+                    .threads
+                    .get(channel_or_thread_id)
+                    .map(|t| t.channel_id.as_str())
+                    .unwrap_or(channel_or_thread_id);
+                store
+                    .channel(target_id)
+                    .is_some_and(|ch| store.can_view_channel(ch, user_id))
+            })
+            .unwrap_or(false)
+    }
+
     pub fn online_ids(&self) -> Vec<Id> {
         self.online
             .read()
@@ -175,6 +191,10 @@ mod tests {
                         name: id.into(),
                         kind: ChannelKind::Voice,
                         topic: String::new(),
+                        category: None,
+                        visibility: crate::model::ChannelVisibility::Public,
+                        read_only: false,
+                        slowmode_seconds: 0,
                         position: 0,
                         created_at: now(),
                     },

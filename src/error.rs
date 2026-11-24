@@ -12,6 +12,7 @@ pub enum ApiError {
     NotFound(&'static str),
     BadRequest(String),
     Conflict(String),
+    TooManyRequests(String),
     Internal,
 }
 
@@ -23,6 +24,7 @@ impl ApiError {
             ApiError::NotFound(_) => StatusCode::NOT_FOUND,
             ApiError::BadRequest(_) => StatusCode::BAD_REQUEST,
             ApiError::Conflict(_) => StatusCode::CONFLICT,
+            ApiError::TooManyRequests(_) => StatusCode::TOO_MANY_REQUESTS,
             ApiError::Internal => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
@@ -32,7 +34,9 @@ impl ApiError {
             ApiError::Unauthorized => "invalid or missing token".into(),
             ApiError::Forbidden(reason) => (*reason).into(),
             ApiError::NotFound(what) => format!("{what} not found"),
-            ApiError::BadRequest(msg) | ApiError::Conflict(msg) => msg.clone(),
+            ApiError::BadRequest(msg) | ApiError::Conflict(msg) | ApiError::TooManyRequests(msg) => {
+                msg.clone()
+            }
             ApiError::Internal => "internal server error".into(),
         }
     }

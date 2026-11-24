@@ -7,6 +7,10 @@ import { handleCreateChannel, handleCreateServer, handleDeleteChannel, handleJoi
 import { handleCreateSticker, handleDeleteSticker, handleEditMessage, handleListPinnedMessages, handleListStickers, handlePreviewLink, handleSearchServerMessages, handleTogglePinMessage } from "./handlers_chat_ext.js";
 import { handleCreateInvite, handleDeleteInvite, handleJoinByInvite, handleListInvites, handlePreviewInvite } from "./handlers_invites.js";
 import { handleAcceptFriend, handleListFriends, handleOpenDm, handleRemoveFriend, handleRequestFriend, handleUpdateServerProfile } from "./handlers_friends.js";
+import { handleGetFile, handleListChannelMedia, handleUploadFile } from "./handlers_files.js";
+import { handleBanMember, handleKickMember, handleListAuditLogs, handleListBans, handleTimeoutMember, handleUnbanMember } from "./handlers_moderation.js";
+import { handleCreateThread, handleListThreadMessages, handleListThreads, handlePostThreadMessage, handleUpdateChannel } from "./handlers_threads.js";
+import { handleWsUpgrade } from "./ws_gateway.js";
 import {
   handleDeleteMessage,
   handleListMessages,
@@ -16,14 +20,7 @@ import {
   handleVoiceJoin,
   handleVoiceLeave,
 } from "./handlers_messages.js";
-import {
-  CORS_HEADERS,
-  HttpError,
-  cmp,
-  defaultSettings,
-  jsonResponse,
-  publicUser,
-} from "./utils.js";
+import { CORS_HEADERS, HttpError, jsonResponse } from "./utils.js";
 
 /** Dispatches REST and WebSocket upgrade requests for the Durable Object. */
 export async function routeHubRequest(hub, request) {
@@ -76,6 +73,24 @@ export async function routeHubRequest(hub, request) {
     if (method === "POST" && (m = path.match(/^\/api\/servers\/([^/]+)\/channels$/))) {
       return await handleCreateChannel(hub, request, decodeURIComponent(m[1]));
     }
+    if (method === "POST" && (m = path.match(/^\/api\/servers\/([^/]+)\/members\/([^/]+)\/kick$/))) {
+      return handleKickMember(hub, request, decodeURIComponent(m[1]), decodeURIComponent(m[2]));
+    }
+    if (method === "POST" && (m = path.match(/^\/api\/servers\/([^/]+)\/members\/([^/]+)\/ban$/))) {
+      return await handleBanMember(hub, request, decodeURIComponent(m[1]), decodeURIComponent(m[2]));
+    }
+    if (method === "POST" && (m = path.match(/^\/api\/servers\/([^/]+)\/members\/([^/]+)\/timeout$/))) {
+      return await handleTimeoutMember(hub, request, decodeURIComponent(m[1]), decodeURIComponent(m[2]));
+    }
+    if (method === "GET" && (m = path.match(/^\/api\/servers\/([^/]+)\/bans$/))) {
+      return handleListBans(hub, request, decodeURIComponent(m[1]));
+    }
+    if (method === "DELETE" && (m = path.match(/^\/api\/servers\/([^/]+)\/bans\/([^/]+)$/))) {
+      return handleUnbanMember(hub, request, decodeURIComponent(m[1]), decodeURIComponent(m[2]));
+    }
+    if (method === "GET" && (m = path.match(/^\/api\/servers\/([^/]+)\/audit$/))) {
+      return handleListAuditLogs(hub, request, decodeURIComponent(m[1]));
+    }
     if (method === "POST" && (m = path.match(/^\/api\/servers\/([^/]+)\/join$/))) {
       return handleJoinServer(hub, request, decodeURIComponent(m[1]));
     }
@@ -97,8 +112,32 @@ export async function routeHubRequest(hub, request) {
     if (method === "POST" && (m = path.match(/^\/api\/invites\/([^/]+)\/join$/))) {
       return handleJoinByInvite(hub, request, decodeURIComponent(m[1]));
     }
+    if (method === "PATCH" && (m = path.match(/^\/api\/channels\/([^/]+)$/))) {
+      return await handleUpdateChannel(hub, request, decodeURIComponent(m[1]));
+    }
     if (method === "DELETE" && (m = path.match(/^\/api\/channels\/([^/]+)$/))) {
       return handleDeleteChannel(hub, request, decodeURIComponent(m[1]));
+    }
+    if (method === "GET" && (m = path.match(/^\/api\/channels\/([^/]+)\/media$/))) {
+      return handleListChannelMedia(hub, request, decodeURIComponent(m[1]), url);
+    }
+    if (method === "GET" && (m = path.match(/^\/api\/channels\/([^/]+)\/threads$/))) {
+      return handleListThreads(hub, request, decodeURIComponent(m[1]));
+    }
+    if (method === "POST" && (m = path.match(/^\/api\/channels\/([^/]+)\/threads$/))) {
+      return await handleCreateThread(hub, request, decodeURIComponent(m[1]));
+    }
+    if (method === "GET" && (m = path.match(/^\/api\/threads\/([^/]+)\/messages$/))) {
+      return handleListThreadMessages(hub, request, decodeURIComponent(m[1]), url);
+    }
+    if (method === "POST" && (m = path.match(/^\/api\/threads\/([^/]+)\/messages$/))) {
+      return await handlePostThreadMessage(hub, request, decodeURIComponent(m[1]));
+    }
+    if (method === "POST" && path === "/api/files") {
+      return await handleUploadFile(hub, request);
+    }
+    if (method === "GET" && (m = path.match(/^\/api\/files\/([^/]+)$/))) {
+      return handleGetFile(hub, decodeURIComponent(m[1]));
     }
     if (method === "GET" && (m = path.match(/^\/api\/channels\/([^/]+)\/messages$/))) {
       return handleListMessages(hub, request, decodeURIComponent(m[1]), url);
@@ -151,116 +190,4 @@ export async function routeHubRequest(hub, request) {
     console.error("[outbox-hub] internal error:", err);
     return jsonResponse({ error: "internal server error", status: 500 }, 500);
   }
-}
-
-/** Authenticates WebSocket token query param and registers socket with hibernation state. */
-export function handleWsUpgrade(hub, url) {
-  const token = (url.searchParams.get("token") || "").trim();
-  const userId = token ? hub.store.tokens[token] : null;
-  const user = userId ? hub.store.users[userId] : null;
-  if (!user) throw new HttpError(401, "invalid or missing token");
-
-  const [client, server] = Object.values(new WebSocketPair());
-  hub.ctx.acceptWebSocket(server);
-  server.serializeAttachment({ userId: user.id });
-
-  const online = [...new Set([...hub.onlineIds(), user.id])].sort(cmp);
-  server.send(JSON.stringify({ type: "ready", user: publicUser(user), online, heartbeat_interval: 25000 }));
-  hub.emit({ type: "presence", online });
-  return new Response(null, { status: 101, webSocket: client });
-}
-
-/** Handles incoming WebSocket frames (`ping`, `status`, `typing`). */
-export function handleWsMessage(hub, ws, raw) {
-  const meta = ws.deserializeAttachment();
-  const user = meta?.userId ? hub.store.users[meta.userId] : null;
-  if (!user) return;
-
-  let payload;
-  try {
-    payload = JSON.parse(typeof raw === "string" ? raw : new TextDecoder().decode(raw));
-  } catch {
-    return;
-  }
-
-  if (payload?.type === "ping") {
-    try { ws.send(JSON.stringify({ type: "pong" })); } catch {}
-    return;
-  }
-  if (payload?.type === "status" && typeof payload.status === "string") {
-    const statusVal = payload.status.trim().slice(0, 32);
-    if (statusVal) {
-      user.settings = user.settings || defaultSettings();
-      user.settings.status = statusVal;
-      hub.persistStore();
-      hub.emit({ type: "user_status", user_id: user.id, status: statusVal });
-    }
-    return;
-  }
-  if (payload?.type === "rtc_signal" && typeof payload.channel_id === "string" && typeof payload.to === "string") {
-    const channel = hub.store.channels[payload.channel_id];
-    if (
-      channel &&
-      (channel.kind === "voice" || channel.id.startsWith("dm:")) &&
-      hub.isMember(channel.server_id, user.id) &&
-      hub.isMember(channel.server_id, payload.to) &&
-      payload.signal !== undefined
-    ) {
-      hub.emit(
-        {
-          type: "rtc_signal",
-          server_id: channel.server_id,
-          channel_id: channel.id,
-          from: user.id,
-          to: payload.to,
-          signal: payload.signal,
-        },
-        ws
-      );
-    }
-    return;
-  }
-  if (payload?.type === "meeting_state" && typeof payload.channel_id === "string") {
-    const channel = hub.store.channels[payload.channel_id];
-    if (
-      channel &&
-      (channel.kind === "voice" || channel.id.startsWith("dm:")) &&
-      hub.isMember(channel.server_id, user.id)
-    ) {
-      hub.emit(
-        {
-          type: "meeting_state",
-          server_id: channel.server_id,
-          channel_id: channel.id,
-          user_id: user.id,
-          muted: Boolean(payload.muted),
-          deafened: Boolean(payload.deafened),
-          video: Boolean(payload.video),
-          speaking: Boolean(payload.speaking),
-          data_saver: payload.data_saver !== false,
-        },
-        ws
-      );
-    }
-    return;
-  }
-  if (payload?.type === "typing" && typeof payload.channel_id === "string") {
-    const channel = hub.store.channels[payload.channel_id];
-    if (channel && hub.isMember(channel.server_id, user.id)) {
-      hub.emit({ type: "typing", server_id: channel.server_id, channel_id: channel.id, user: publicUser(user) });
-    }
-  }
-}
-
-/** Cleans up voice occupancy and broadcasts updated presence on socket disconnect. */
-export function handleWsDisconnect(hub, ws) {
-  const meta = ws.deserializeAttachment();
-  if (!meta?.userId) return;
-  const online = hub.onlineIds(ws);
-  if (!online.includes(meta.userId)) {
-    for (const { serverId, channelId, users } of hub.leaveAllVoice(meta.userId)) {
-      hub.emit({ type: "voice_state", server_id: serverId, channel_id: channelId, users }, ws);
-    }
-  }
-  hub.emit({ type: "presence", online }, ws);
 }

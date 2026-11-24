@@ -4,13 +4,15 @@
  */
 
 import { DurableObject } from "cloudflare:workers";
-import { handleWsDisconnect, handleWsMessage, routeHubRequest } from "./router.js";
+import { routeHubRequest } from "./router.js";
+import { handleWsDisconnect, handleWsMessage } from "./ws_gateway.js";
 import { seededStore } from "./seed.js";
 import { defaultRolesConfig, normalizeServerFields } from "./server_templates.js";
 import {
   HttpError,
   cmp,
   defaultSettings,
+  eventScopedChannel,
   eventServerId,
   jsonResponse,
   publicUser,
@@ -23,6 +25,8 @@ export class OutboxHub extends DurableObject {
     this.store = null;
     this.voice = {};
     this.messageIndex = new Map();
+    this.slowmodeLast = new Map();
+    this.slowmodeLast = new Map();
 
     this.ctx.blockConcurrencyWhile(async () => {
       this.ctx.storage.sql.exec(`
@@ -111,6 +115,27 @@ export class OutboxHub extends DurableObject {
     return this.store.members?.[serverId]?.[userId] || null;
   }
 
+  insertMessage(channelId, message) {
+    if (!this.store.messages[channelId]) this.store.messages[channelId] = [];
+    this.store.messages[channelId].push(message);
+    this.messageIndex.set(message.id, channelId);
+  }
+
+  canViewChannel(channel, userId) {
+    if (!channel || !this.isMember(channel.server_id, userId)) return false;
+    if (channel.visibility === "admin") {
+      const r = this.role(channel.server_id, userId);
+      return r === "owner" || r === "admin";
+    }
+    return true;
+  }
+
+  activeTimeoutUntil(serverId, userId) {
+    const raw = this.store.timeouts?.[`${serverId}:${userId}`];
+    const ts = raw ? Date.parse(raw) : NaN;
+    return Number.isFinite(ts) && ts > Date.now() ? raw : null;
+  }
+
   sortedChannels(serverId) {
     return Object.values(this.store.channels)
       .filter((c) => c.server_id === serverId)
@@ -144,11 +169,12 @@ export class OutboxHub extends DurableObject {
       owner_id: server.owner_id,
       created_at: server.created_at,
       role: this.role(server.id, userId) || "member",
-      channels: this.sortedChannels(server.id),
+      channels: this.sortedChannels(server.id).filter((c) => this.canViewChannel(c, userId)),
       members,
       member_roles: { ...memberRolesMap },
       member_profiles: memberProfiles,
       stickers: [...(this.store.stickers?.[server.id] || [])],
+      my_timeout_until: this.activeTimeoutUntil(server.id, userId),
     };
   }
 
@@ -157,9 +183,7 @@ export class OutboxHub extends DurableObject {
     if (!authorUser) return null;
     let reply = null;
     if (message.reply_to) {
-      const target = (this.store.messages[message.channel_id] || []).find(
-        (m) => m.id === message.reply_to
-      );
+      const target = (this.store.messages[message.channel_id] || []).find((m) => m.id === message.reply_to);
       if (target && this.store.users[target.author_id]) {
         reply = {
           id: target.id,
@@ -170,13 +194,9 @@ export class OutboxHub extends DurableObject {
     }
     const reactions = Object.entries(message.reactions || {})
       .filter(([, users]) => users.length > 0)
-      .map(([emoji, users]) => ({
-        emoji,
-        count: users.length,
-        me: users.includes(viewerId),
-        users: [...users],
-      }))
+      .map(([emoji, users]) => ({ emoji, count: users.length, me: users.includes(viewerId), users: [...users] }))
       .sort((a, b) => cmp(a.emoji, b.emoji));
+    const thread = Object.values(this.store.threads || {}).find((t) => t.parent_message_id === message.id);
 
     return {
       id: message.id,
@@ -189,6 +209,9 @@ export class OutboxHub extends DurableObject {
       reactions,
       attachments: message.attachments || [],
       pinned: Boolean(message.pinned),
+      thread_id: thread ? thread.id : null,
+      thread_title: thread ? thread.title : null,
+      thread_count: thread ? (this.store.messages[thread.id] || []).length : 0,
     };
   }
 
@@ -244,46 +267,26 @@ export class OutboxHub extends DurableObject {
   emit(event, excludeWs = null) {
     const payload = JSON.stringify(event);
     const serverId = eventServerId(event);
+    const sc = eventScopedChannel(event);
+    const scChannel = sc ? this.store.channels[this.store.threads?.[sc]?.channel_id || sc] : null;
     for (const ws of this.ctx.getWebSockets()) {
       if (ws === excludeWs) continue;
       const meta = ws.deserializeAttachment();
       if (!meta?.userId) continue;
       if (event.to && meta.userId !== event.to) continue;
       if (serverId && !this.isMember(serverId, meta.userId)) continue;
-      try {
-        ws.send(payload);
-      } catch {
-        // Closed sockets are cleaned up by webSocketClose/webSocketError.
-      }
+      if (sc && !this.canViewChannel(scChannel, meta.userId)) continue;
+      try { ws.send(payload); } catch {}
     }
   }
 
-  async fetch(request) {
-    return routeHubRequest(this, request);
-  }
-
-  async webSocketMessage(ws, raw) {
-    handleWsMessage(this, ws, raw);
-  }
-
-  async webSocketClose(ws) {
-    handleWsDisconnect(this, ws);
-  }
-
-  async webSocketError(ws) {
-    handleWsDisconnect(this, ws);
-  }
+  async fetch(request) { return routeHubRequest(this, request); }
+  async webSocketMessage(ws, raw) { handleWsMessage(this, ws, raw); }
+  async webSocketClose(ws) { handleWsDisconnect(this, ws); }
+  async webSocketError(ws) { handleWsDisconnect(this, ws); }
 
   handleHealth() {
     const messages = Object.values(this.store.messages).reduce((sum, list) => sum + list.length, 0);
-    return jsonResponse({
-      status: "ok",
-      service: "outbox-chat",
-      users: Object.keys(this.store.users).length,
-      servers: Object.keys(this.store.servers).length,
-      messages,
-      online: this.onlineIds().length,
-      note: "Outbox Chat พร้อมใช้งาน",
-    });
+    return jsonResponse({ status: "ok", service: "outbox-chat", users: Object.keys(this.store.users).length, servers: Object.keys(this.store.servers).length, messages, online: this.onlineIds().length, note: "Outbox Chat พร้อมใช้งาน" });
   }
 }

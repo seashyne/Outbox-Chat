@@ -88,6 +88,8 @@ pub struct CreateChannelRequest {
     pub kind: ChannelKind,
     #[serde(default)]
     pub topic: String,
+    #[serde(default)]
+    pub category: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -186,6 +188,8 @@ pub struct ServerView {
     pub member_profiles: HashMap<Id, ServerProfile>,
     #[serde(default)]
     pub stickers: Vec<ServerSticker>,
+    #[serde(default)]
+    pub my_timeout_until: Option<String>,
 }
 
 #[derive(Debug, Serialize)]

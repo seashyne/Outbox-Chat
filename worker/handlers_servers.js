@@ -168,6 +168,9 @@ export function handleJoinServer(hub, request, serverId) {
   const user = hub.authenticate(request);
   const server = hub.store.servers[serverId];
   if (!server) throw new HttpError(404, "server not found");
+  if (hub.store.bans?.[serverId]?.[user.id]) {
+    throw new HttpError(403, "you are banned from this server");
+  }
 
   if (!hub.store.members[serverId]) hub.store.members[serverId] = {};
   const joined = !hub.store.members[serverId][user.id];
@@ -222,12 +225,17 @@ export async function handleCreateChannel(hub, request, serverId) {
   const position = Object.values(hub.store.channels).filter(
     (c) => c.server_id === serverId && c.kind === kind
   ).length;
+  const rawCategory = typeof body.category === "string" ? [...body.category.trim()].slice(0, 32).join("") : "";
   const channel = {
     id: newId(),
     server_id: serverId,
     name,
     kind,
     topic,
+    category: rawCategory || null,
+    visibility: "public",
+    read_only: false,
+    slowmode_seconds: 0,
     position,
     created_at: nowIso(),
   };

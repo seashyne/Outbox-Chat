@@ -5,11 +5,13 @@
 
 mod events;
 mod payloads;
+mod phase23;
 mod social;
 mod store;
 
 pub use events::*;
 pub use payloads::*;
+pub use phase23::*;
 pub use social::*;
 pub use store::Store;
 
@@ -78,17 +80,9 @@ pub struct UserSettings {
     pub language: String,
 }
 
-fn default_theme() -> String {
-    "dark".to_string()
-}
-
-fn default_status() -> String {
-    "online".to_string()
-}
-
-fn default_language() -> String {
-    "auto".to_string()
-}
+fn default_theme() -> String { "dark".into() }
+fn default_status() -> String { "online".into() }
+fn default_language() -> String { "auto".into() }
 
 impl Default for UserSettings {
     fn default() -> Self {
@@ -180,9 +174,15 @@ pub struct ServerRolesConfig {
     pub allow_member_create_channel: bool,
 }
 
-fn default_owner_label() -> String { "เจ้าของเซิร์ฟเวอร์".into() }
-fn default_admin_label() -> String { "ผู้ดูแลระบบ".into() }
-fn default_member_label() -> String { "สมาชิก".into() }
+fn default_owner_label() -> String {
+    "เจ้าของเซิร์ฟเวอร์".into()
+}
+fn default_admin_label() -> String {
+    "ผู้ดูแลระบบ".into()
+}
+fn default_member_label() -> String {
+    "สมาชิก".into()
+}
 fn default_admin_color() -> String { "#f59e0b".into() }
 fn default_member_color() -> String { "#94a3b8".into() }
 fn default_accent_color() -> String { "#5865f2".into() }
@@ -228,6 +228,14 @@ pub struct Channel {
     pub topic: String,
     pub position: i64,
     pub created_at: String,
+    #[serde(default)]
+    pub category: Option<String>,
+    #[serde(default)]
+    pub visibility: ChannelVisibility,
+    #[serde(default)]
+    pub read_only: bool,
+    #[serde(default)]
+    pub slowmode_seconds: u32,
 }
 
 /// Persisted chat message stored chronologically per channel.
@@ -282,4 +290,10 @@ pub struct MessageView {
     pub attachments: Vec<Attachment>,
     #[serde(default)]
     pub pinned: bool,
+    #[serde(default)]
+    pub thread_id: Option<Id>,
+    #[serde(default)]
+    pub thread_title: Option<String>,
+    #[serde(default)]
+    pub thread_count: usize,
 }

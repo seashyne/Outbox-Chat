@@ -145,6 +145,18 @@ export function buildTemplateChannels(serverId, spec) {
   let voicePos = 0;
   return spec.channels.map(([name, kind, topic]) => {
     const position = kind === "voice" ? voicePos++ : textPos++;
-    return { id: newId(), server_id: serverId, name, kind, topic, position, created_at: ts };
+    return {
+      id: newId(),
+      server_id: serverId,
+      name,
+      kind,
+      topic,
+      category: null,
+      visibility: "public",
+      read_only: false,
+      slowmode_seconds: 0,
+      position,
+      created_at: ts,
+    };
   });
 }

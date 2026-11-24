@@ -49,6 +49,10 @@ export function seededStore() {
       name,
       kind,
       topic,
+      category: null,
+      visibility: "public",
+      read_only: false,
+      slowmode_seconds: 0,
       position: index,
       created_at: nowIso(),
     };

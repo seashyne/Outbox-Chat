@@ -1,8 +1,9 @@
-use super::{clean_text, require_member, Auth};
+use super::files::validate_attachments;
+use super::{active_timeout_until, clean_text, require_member, Auth};
 use crate::error::{ApiError, ApiResult};
 use crate::model::{
-    new_id, now, Attachment, AttachmentInput, ChannelKind, CreateMessageRequest, Event, Message,
-    MessageView, ReactionRequest, Role,
+    new_id, now, ChannelKind, CreateMessageRequest, Event, Message, MessageView, ReactionRequest,
+    Role,
 };
 use crate::state::AppState;
 use axum::extract::{Path, Query, State};
@@ -11,54 +12,6 @@ use axum::Json;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::sync::Arc;
-
-const ALLOWED_MIMES: [&str; 8] = [
-    "image/png",
-    "image/jpeg",
-    "image/webp",
-    "image/gif",
-    "application/pdf",
-    "text/plain",
-    "application/zip",
-    "application/json",
-];
-
-fn validate_attachments(raw: &[AttachmentInput]) -> ApiResult<Vec<Attachment>> {
-    if raw.len() > 4 {
-        return Err(ApiError::BadRequest("maximum 4 attachments per message".into()));
-    }
-    let mut out = Vec::with_capacity(raw.len());
-    for item in raw {
-        let mime = item.mime.trim().to_ascii_lowercase();
-        if !ALLOWED_MIMES.contains(&mime.as_str()) {
-            return Err(ApiError::BadRequest(format!("unsupported file type: {mime}")));
-        }
-        let name = clean_text(&item.name, 80, "attachment name")?;
-        if name.contains('/') || name.contains('\\') {
-            return Err(ApiError::BadRequest("invalid attachment filename".into()));
-        }
-        let data = item.data_url.trim();
-        let prefix = format!("data:{mime};base64,");
-        if !data.starts_with(&prefix)
-            || data.len() > 620_000
-            || data.chars().any(|c| c.is_control() || c.is_whitespace() || c == '<' || c == '"')
-        {
-            return Err(ApiError::BadRequest("invalid or oversized attachment data".into()));
-        }
-        let approx_bytes = ((data.len() - prefix.len()) * 3) / 4;
-        if approx_bytes > 460_000 {
-            return Err(ApiError::BadRequest("attachment exceeds 450 KB limit".into()));
-        }
-        out.push(Attachment {
-            id: new_id(),
-            name,
-            mime,
-            size: item.size.unwrap_or(approx_bytes).min(460_000),
-            data_url: data.to_string(),
-        });
-    }
-    Ok(out)
-}
 
 #[derive(Debug, Deserialize)]
 pub struct MessagesQuery {
@@ -77,6 +30,9 @@ pub async fn list_messages(
         .channel(&channel_id)
         .ok_or(ApiError::NotFound("channel"))?;
     require_member(&store, &channel.server_id, &user.id)?;
+    if !store.can_view_channel(channel, &user.id) {
+        return Err(ApiError::Forbidden("you cannot access this channel"));
+    }
     if channel.kind != ChannelKind::Text {
         return Err(ApiError::BadRequest(
             "voice channels do not have a message history".into(),
@@ -121,10 +77,41 @@ pub async fn post_message(
             .cloned()
             .ok_or(ApiError::NotFound("channel"))?;
         require_member(&store, &channel.server_id, &user.id)?;
+        if !store.can_view_channel(&channel, &user.id) {
+            return Err(ApiError::Forbidden("you cannot access this channel"));
+        }
         if channel.kind != ChannelKind::Text {
             return Err(ApiError::BadRequest(
                 "cannot post messages to a voice channel".into(),
             ));
+        }
+        let is_manager = store
+            .role(&channel.server_id, &user.id)
+            .is_some_and(Role::can_manage);
+        if !channel_id.starts_with("dm:")
+            && active_timeout_until(&store, &channel.server_id, &user.id).is_some()
+        {
+            return Err(ApiError::Forbidden(
+                "you are currently timed out in this server",
+            ));
+        }
+        if channel.read_only && !is_manager {
+            return Err(ApiError::Forbidden("this channel is read-only"));
+        }
+        if channel.slowmode_seconds > 0 && !is_manager {
+            let now_sec = chrono::Utc::now().timestamp();
+            let key = format!("{channel_id}:{}", user.id);
+            if let Some(&last_sec) = store.slowmode_last.get(&key) {
+                let elapsed = now_sec - last_sec;
+                let cooldown = i64::from(channel.slowmode_seconds);
+                if elapsed < cooldown {
+                    return Err(ApiError::TooManyRequests(format!(
+                        "slowmode active: wait {}s",
+                        cooldown - elapsed
+                    )));
+                }
+            }
+            store.slowmode_last.insert(key, now_sec);
         }
         let reply_to = body.reply_to.filter(|reply_id| {
             store
@@ -168,10 +155,18 @@ pub async fn delete_message(
         let (channel_id, index) = store
             .locate_message(&message_id)
             .ok_or(ApiError::NotFound("message"))?;
+        let parent_id = store
+            .threads
+            .get(&channel_id)
+            .map(|t| t.channel_id.clone())
+            .unwrap_or_else(|| channel_id.clone());
         let channel = store
-            .channel(&channel_id)
+            .channel(&parent_id)
             .cloned()
             .ok_or(ApiError::NotFound("channel"))?;
+        if !store.can_view_channel(&channel, &user.id) {
+            return Err(ApiError::Forbidden("you cannot access this channel"));
+        }
         let author_id = store.messages[&channel_id][index].author_id.clone();
         let can_manage = store
             .role(&channel.server_id, &user.id)
@@ -213,12 +208,20 @@ pub async fn toggle_reaction(
         let (channel_id, index) = store
             .locate_message(&message_id)
             .ok_or(ApiError::NotFound("message"))?;
+        let parent_id = store
+            .threads
+            .get(&channel_id)
+            .map(|t| t.channel_id.clone())
+            .unwrap_or_else(|| channel_id.clone());
         let channel = store
             .channels
-            .get(&channel_id)
+            .get(&parent_id)
             .cloned()
             .ok_or(ApiError::NotFound("channel"))?;
         require_member(&store, &channel.server_id, &user.id)?;
+        if !store.can_view_channel(&channel, &user.id) {
+            return Err(ApiError::Forbidden("you cannot access this channel"));
+        }
 
         let updated = {
             let message = store

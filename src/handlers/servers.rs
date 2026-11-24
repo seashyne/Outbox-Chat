@@ -199,6 +199,9 @@ pub async fn join_server(
     let (view, joined) = {
         let mut store = state.store.write().map_err(|_| ApiError::Internal)?;
         let server = store.servers.get(&server_id).cloned().ok_or(ApiError::NotFound("server"))?;
+        if store.bans.get(&server_id).is_some_and(|b| b.contains_key(&user.id)) {
+            return Err(ApiError::Forbidden("you are banned from this server"));
+        }
         let members = store.members.entry(server_id.clone()).or_default();
         let joined = !members.contains_key(&user.id);
         members.entry(user.id.clone()).or_insert(Role::Member);

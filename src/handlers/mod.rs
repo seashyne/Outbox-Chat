@@ -8,30 +8,38 @@ pub mod auth;
 mod auth_tests;
 pub mod channels;
 pub mod chat_ext;
+pub mod files;
 pub mod friends;
 pub mod invites;
 pub mod messages;
+pub mod moderation;
 pub mod server_templates;
 pub mod servers;
 #[cfg(test)]
 mod settings_tests;
+pub mod threads;
 pub mod users;
 pub mod voice;
 
 pub use auth::{bootstrap, login, logout, register};
-pub use channels::{create_channel, delete_channel};
+pub use channels::{create_channel, delete_channel, update_channel};
 pub use chat_ext::{
     create_sticker, delete_sticker, edit_message, list_pinned_messages, list_stickers,
     preview_link, search_server_messages, toggle_pin_message,
 };
+pub use files::{get_file, list_channel_media, upload_file};
 pub use friends::{
     accept_friend, list_friends, open_dm, remove_friend, request_friend, update_server_profile,
 };
 pub use invites::{create_invite, delete_invite, join_by_invite, list_invites, preview_invite};
 pub use messages::{delete_message, list_messages, post_message, toggle_reaction};
+pub use moderation::{
+    ban_member, kick_member, list_audit_logs, list_bans, timeout_member, unban_member,
+};
 pub use servers::{
     create_server, join_server, leave_server, list_servers, update_member_role, update_server,
 };
+pub use threads::{create_thread, list_thread_messages, list_threads, post_thread_message};
 pub use users::{get_settings, update_profile, update_settings};
 pub use voice::{rtc_ice, voice_join, voice_leave};
 
@@ -126,6 +134,19 @@ pub(crate) fn sorted_channels(store: &Store, server_id: &str) -> Vec<Channel> {
     channels
 }
 
+/// Returns active ISO timestamp if `user_id` is currently timed out in `server_id`.
+pub(crate) fn active_timeout_until(store: &Store, server_id: &str, user_id: &str) -> Option<String> {
+    store
+        .timeouts
+        .get(&format!("{server_id}:{user_id}"))
+        .filter(|ts| {
+            chrono::DateTime::parse_from_rfc3339(ts)
+                .map(|dt| dt.with_timezone(&chrono::Utc) > chrono::Utc::now())
+                .unwrap_or(false)
+        })
+        .cloned()
+}
+
 pub(crate) fn server_view(store: &Store, user_id: &str, server: &Server) -> ServerView {
     let mut members: Vec<PublicUser> = Vec::new();
     let mut member_roles: std::collections::HashMap<String, Role> = std::collections::HashMap::new();
@@ -142,6 +163,10 @@ pub(crate) fn server_view(store: &Store, user_id: &str, server: &Server) -> Serv
         }
     }
     members.sort_by(|a, b| a.display_name.cmp(&b.display_name));
+    let channels = sorted_channels(store, &server.id)
+        .into_iter()
+        .filter(|c| store.can_view_channel(c, user_id))
+        .collect();
 
     ServerView {
         id: server.id.clone(),
@@ -153,11 +178,12 @@ pub(crate) fn server_view(store: &Store, user_id: &str, server: &Server) -> Serv
         owner_id: server.owner_id.clone(),
         created_at: server.created_at.clone(),
         role: store.role(&server.id, user_id).unwrap_or(Role::Member),
-        channels: sorted_channels(store, &server.id),
+        channels,
         members,
         member_roles,
         member_profiles,
         stickers: store.stickers.get(&server.id).cloned().unwrap_or_default(),
+        my_timeout_until: active_timeout_until(store, &server.id, user_id),
     }
 }
 

@@ -7,19 +7,23 @@ import { clearReply, clearSearch, insertMention, openDmChannel, renderAll, selec
 import { handleError, setUnauthorizedHandler, toast } from './js/api.js';
 import { bindAuthEvents, logout, start, toggleTheme } from './js/auth.js';
 import { openPinnedMessagesModal, openServerSearchModal, openStickerPickerModal } from './js/chat_features.js';
-import { bindMessageEvents } from './js/composer.js';
+import { bindMessageEvents, syncComposerAccess } from './js/composer.js';
 import { acceptFriendRequest, openDirectChat, sendFriendRequest } from './js/friends_ui.js';
 import { applyStaticTranslations } from './js/i18n.js';
 import { captureInviteFromUrl, openInviteModal, openJoinInvitePrompt } from './js/invites_ui.js';
+import { openChannelMediaModal } from './js/media_gallery.js';
 import { joinMeetingRoom, leaveMeetingRoom, startDmCall, updateMeetingControl } from './js/meeting_ui.js';
-import { renderDmCallBanner } from './js/notify.js';
 import { closeOverlays, handleDropdownKeydown, openChannelInfo, openProfile, openServerMenu, openStatusMenu } from './js/menus.js';
 import { bindModalEvents, closeModal, openConfirmDeleteChannel, openConfirmLeaveServer, openCreateChannel, openDirectory } from './js/modals.js';
+import { openBanMemberModal, openEditChannelModal, openKickMemberModal, openTimeoutMemberModal } from './js/moderation_ui.js';
+import { renderDmCallBanner } from './js/notify.js';
 import { autoGrow } from './js/render_chat.js';
 import { renderHeader, renderRail, renderSidebar, renderUserPanel, renderVoiceBar, renderVoicePanel } from './js/render_shell.js';
 import { changeMemberRole, openCreateServer, openServerSettings } from './js/server_modal.js';
 import { bindSettingsEvents, closeSettingsModal, openSettingsModal, updateMyStatus } from './js/settings.js';
 import { $, applyTheme, currentServer, state } from './js/state.js';
+import { openChannelThreadsModal } from './js/threads_ui.js';
+import { bindVoiceNoteEvents } from './js/voice_note.js';
 
 setUnauthorizedHandler(logout);
 setCloseOverlaysHook(closeOverlays);
@@ -27,6 +31,7 @@ captureInviteFromUrl();
 applyTheme(state.settings.theme, state.settings.custom_colors);
 bindAuthEvents();
 bindMessageEvents();
+bindVoiceNoteEvents();
 bindModalEvents(openCreateServer, openJoinInvitePrompt);
 
 function setMobileSidebar(open) {
@@ -134,6 +139,8 @@ $('chatHeader').addEventListener('click', (e) => {
   if (!btn) return;
   const action = btn.dataset.action;
   if (action === 'toggle-search') toggleSearch();
+  else if (action === 'open-threads') openChannelThreadsModal();
+  else if (action === 'open-media') openChannelMediaModal();
   else if (action === 'open-pins') openPinnedMessagesModal();
   else if (action === 'server-search') openServerSearchModal();
   else if (action === 'toggle-members') {
@@ -197,7 +204,8 @@ $('dropdown').addEventListener('click', (e) => {
   } else if (action === 'channel-mark-read') {
     state.unread.delete(btn.dataset.id); state.mentions.delete(btn.dataset.id);
     renderSidebar(); renderRail(); closeOverlays();
-  } else if (action === 'channel-delete') { const cid = btn.dataset.id; closeOverlays(); openConfirmDeleteChannel(cid); }
+  } else if (action === 'channel-edit') { const cid = btn.dataset.id; closeOverlays(); openEditChannelModal(cid, syncComposerAccess); }
+  else if (action === 'channel-delete') { const cid = btn.dataset.id; closeOverlays(); openConfirmDeleteChannel(cid); }
   else if (action === 'leave-server') { const sid = btn.dataset.id; closeOverlays(); openConfirmLeaveServer(sid); }
   else if (action === 'toggle-members') {
     state.membersVisible = !state.membersVisible;
@@ -248,6 +256,15 @@ $('profilePopout').addEventListener('click', (e) => {
     const role = btn.dataset.role;
     closeOverlays();
     changeMemberRole(sid, id, role).catch(handleError);
+  } else if (action === 'mod-timeout' && currentServer()) {
+    const sid = currentServer().id; const name = btn.dataset.name || '';
+    closeOverlays(); openTimeoutMemberModal(sid, id, name);
+  } else if (action === 'mod-kick' && currentServer()) {
+    const sid = currentServer().id; const name = btn.dataset.name || '';
+    closeOverlays(); openKickMemberModal(sid, id, name);
+  } else if (action === 'mod-ban' && currentServer()) {
+    const sid = currentServer().id; const name = btn.dataset.name || '';
+    closeOverlays(); openBanMemberModal(sid, id, name);
   }
 });
 

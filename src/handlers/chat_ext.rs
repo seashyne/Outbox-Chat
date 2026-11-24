@@ -26,8 +26,16 @@ pub async fn edit_message(
     let (view, server_id) = {
         let mut store = state.store.write().map_err(|_| ApiError::Internal)?;
         let (channel_id, index) = store.locate_message(&message_id).ok_or(ApiError::NotFound("message"))?;
-        let channel = store.channel(&channel_id).cloned().ok_or(ApiError::NotFound("channel"))?;
+        let parent_id = store
+            .threads
+            .get(&channel_id)
+            .map(|t| t.channel_id.clone())
+            .unwrap_or_else(|| channel_id.clone());
+        let channel = store.channel(&parent_id).cloned().ok_or(ApiError::NotFound("channel"))?;
         require_member(&store, &channel.server_id, &user.id)?;
+        if !store.can_view_channel(&channel, &user.id) {
+            return Err(ApiError::Forbidden("you cannot access this channel"));
+        }
 
         let updated = {
             let msg = store.messages.get_mut(&channel_id).and_then(|l| l.get_mut(index)).ok_or(ApiError::NotFound("message"))?;
@@ -55,8 +63,16 @@ pub async fn toggle_pin_message(
     let (view, server_id) = {
         let mut store = state.store.write().map_err(|_| ApiError::Internal)?;
         let (channel_id, index) = store.locate_message(&message_id).ok_or(ApiError::NotFound("message"))?;
-        let channel = store.channel(&channel_id).cloned().ok_or(ApiError::NotFound("channel"))?;
+        let parent_id = store
+            .threads
+            .get(&channel_id)
+            .map(|t| t.channel_id.clone())
+            .unwrap_or_else(|| channel_id.clone());
+        let channel = store.channel(&parent_id).cloned().ok_or(ApiError::NotFound("channel"))?;
         require_member(&store, &channel.server_id, &user.id)?;
+        if !store.can_view_channel(&channel, &user.id) {
+            return Err(ApiError::Forbidden("you cannot access this channel"));
+        }
 
         let updated = {
             let msg = store.messages.get_mut(&channel_id).and_then(|l| l.get_mut(index)).ok_or(ApiError::NotFound("message"))?;
@@ -82,6 +98,9 @@ pub async fn list_pinned_messages(
         .channel(&channel_id)
         .ok_or(ApiError::NotFound("channel"))?;
     require_member(&store, &channel.server_id, &user.id)?;
+    if !store.can_view_channel(channel, &user.id) {
+        return Err(ApiError::Forbidden("you cannot access this channel"));
+    }
     let mut views: Vec<MessageView> = store
         .messages
         .get(&channel_id)
@@ -121,7 +140,11 @@ pub async fn search_server_messages(
     let channel_ids: Vec<String> = store
         .channels
         .values()
-        .filter(|c| c.server_id == server_id && c.kind == ChannelKind::Text)
+        .filter(|c| {
+            c.server_id == server_id
+                && c.kind == ChannelKind::Text
+                && store.can_view_channel(c, &user.id)
+        })
         .map(|c| c.id.clone())
         .collect();
 

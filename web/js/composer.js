@@ -10,7 +10,32 @@ import { openEditMessageModal, togglePinMessage } from './chat_features.js';
 import { t } from './i18n.js';
 import { openComposerMenu, openEmojiPicker, openProfile, pickEmoji } from './menus.js';
 import { autoGrow, renderMessages, scrollToBottom, updateJumpButton } from './render_chat.js';
-import { $, currentChannel, state } from './state.js';
+import { $, currentChannel, currentServer, state } from './state.js';
+import { openMessageThread } from './threads_ui.js';
+
+/** Disables or annotates composer controls when active channel is read-only or user is timed out. */
+export function syncComposerAccess() {
+  const input = $('messageInput');
+  const sendBtn = $('sendBtn');
+  const attachBtn = $('attachBtn');
+  const micBtn = $('voiceNoteBtn');
+  if (!input) return;
+  const ch = currentChannel();
+  const srv = currentServer();
+  const isManager = ['owner', 'admin'].includes(srv?.role);
+  const timedOut = !state.homeMode && Boolean(srv?.my_timeout_until && Date.parse(srv.my_timeout_until) > Date.now());
+  const readOnly = !state.homeMode && Boolean(ch?.read_only && !isManager);
+  const blocked = timedOut || readOnly;
+  input.disabled = blocked;
+  if (attachBtn) attachBtn.disabled = blocked;
+  if (micBtn) micBtn.disabled = blocked;
+  if (sendBtn && blocked) sendBtn.disabled = true;
+  if (timedOut) input.placeholder = t('mod.timedOutNotice');
+  else if (readOnly) input.placeholder = t('perm.readOnlyNotice');
+  else if (!state.homeMode && ch?.slowmode_seconds > 0 && !isManager) {
+    input.placeholder = t('perm.slowmodeHint', { secs: ch.slowmode_seconds });
+  }
+}
 
 /** Wires event delegation for the message stream, composer textarea, and scroll helpers. */
 export function bindMessageEvents() {
@@ -28,6 +53,7 @@ export function bindMessageEvents() {
     else if (action === 'quick-react') toggleReaction(id, '+1');
     else if (action === 'react-more') openEmojiPicker(btn, { type: 'reaction', messageId: id });
     else if (action === 'reply') setReply(id);
+    else if (action === 'open-msg-thread') openMessageThread(id);
     else if (action === 'edit-message') openEditMessageModal(id);
     else if (action === 'pin-message') togglePinMessage(id);
     else if (action === 'copy-message') {
