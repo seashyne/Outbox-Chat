@@ -235,7 +235,8 @@ export function openStatusMenu(anchor) {
         <span class="status-dot ${s.dot} dd-dot"></span><span>${escapeHtml(statusLabel(s.key))}</span>${state.myStatus === s.key ? `<b>${ICONS.check}</b>` : ''}
       </button>`).join('')}
     <div class="dd-sep"></div>
-    <button data-action="open-settings-profile">${ICONS.settings} <span>${escapeHtml(t('menu.accountSettings'))}</span></button>`, anchor);
+    <button data-action="open-settings-profile">${ICONS.settings} <span>${escapeHtml(t('menu.accountSettings'))}</span></button>
+    <button class="danger" data-action="logout">${ICONS.logout} <span>${escapeHtml(t('settings.logoutBtn'))}</span></button>`, anchor);
 }
 
 export function openChannelInfo(channelId, anchor) {

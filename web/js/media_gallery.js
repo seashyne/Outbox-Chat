@@ -6,7 +6,7 @@
 import { api, handleError } from './api.js';
 import { API_ORIGIN, apiUrl } from './config.js';
 import { t, translateApiError } from './i18n.js';
-import { openModal } from './modals.js';
+import { openInspector } from './inspector_ui.js';
 import { $, ICONS, currentChannel, escapeHtml, fmtFull, state } from './state.js';
 
 /** Resolves relative `/api/files/...` paths against `API_ORIGIN` for split-domain deployment. */
@@ -96,13 +96,11 @@ export async function openChannelMediaModal() {
     }
   };
 
-  openModal({
+  openInspector({
     title: t('gallery.title', { name: ch.name }),
-    desc: t('gallery.desc'),
-    wide: true,
-    hideSubmit: true,
+    subtitle: t('gallery.desc'),
     html: `
-      <div class="friends-tabs" id="galTabs" style="margin-bottom:12px">
+      <div class="friends-tabs" id="galTabs" style="margin-bottom:8px">
         <button type="button" class="ftab active" data-gal-kind="all">${escapeHtml(t('gallery.tabAll'))}</button>
         <button type="button" class="ftab" data-gal-kind="media">${escapeHtml(t('gallery.tabMedia'))}</button>
         <button type="button" class="ftab" data-gal-kind="audio">${escapeHtml(t('gallery.tabAudio'))}</button>

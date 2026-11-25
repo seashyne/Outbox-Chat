@@ -1,48 +1,52 @@
-/* Outbox Chat — Base theme tokens, resets, accessible focus/scrollbars, and login card */
+/* Outbox Chat — Outbox Studio base tokens, resets, accessible focus/scrollbars, and login card */
 :root {
-  --rail: #141518;
-  --sidebar: #1c1d22;
-  --chat: #22242a;
-  --members: #1c1d22;
-  --header: #22242a;
-  --input: #2c2f37;
-  --hover: #2a2c34;
-  --active: #343741;
-  --elevated: #141519;
-  --text: #f3f4f6;
-  --muted: #b0b6c2;
-  --faint: #8c93a0;
-  --brand: #5865f2;
-  --brand-hover: #4752c4;
+  --rail: #0e0d0c;
+  --sidebar: #181615;
+  --chat: #201e1c;
+  --members: #181615;
+  --header: #201e1c;
+  --input: #2a2725;
+  --hover: #292624;
+  --active: #35302d;
+  --elevated: #161413;
+  --text: #f7f4ef;
+  --muted: #b6afa6;
+  --faint: #8e877e;
+  --brand: #ff5c35;
+  --brand-solid: #d9421e;
+  --brand-hover: #c23616;
   --green: #22c55e;
   --red: #ef4444;
   --amber: #f59e0b;
-  --border: rgba(255, 255, 255, .08);
-  --shadow: 0 12px 32px rgba(0, 0, 0, .42);
-  --focus-ring: #f3f4f6;
-  --scrollbar-thumb: rgba(160, 168, 184, .32);
-  --radius: 10px;
+  --border: rgba(255, 245, 235, .09);
+  --shadow: 0 14px 36px rgba(0, 0, 0, .48);
+  --focus-ring: #fff5ef;
+  --scrollbar-thumb: rgba(190, 178, 165, .3);
+  --radius: 12px;
   color-scheme: dark;
   accent-color: var(--brand);
 }
 
 html[data-theme="light"] {
-  --rail: #e5e7eb;
-  --sidebar: #f3f4f6;
+  --rail: #ece7df;
+  --sidebar: #f6f3ed;
   --chat: #ffffff;
-  --members: #f3f4f6;
+  --members: #f6f3ed;
   --header: #ffffff;
-  --input: #eef0f4;
-  --hover: #e5e7eb;
-  --active: #dbe0e8;
+  --input: #efebe4;
+  --hover: #e8e2d9;
+  --active: #dfd7cc;
   --elevated: #ffffff;
-  --text: #111827;
-  --muted: #4b5563;
-  --faint: #6b7280;
-  --border: rgba(17, 24, 39, .1);
-  --shadow: 0 10px 28px rgba(17, 24, 39, .12);
-  --focus-ring: #111827;
-  --scrollbar-thumb: rgba(75, 85, 99, .28);
+  --text: #181512;
+  --muted: #575049;
+  --faint: #787067;
+  --brand: #d9421e;
+  --brand-solid: #c23616;
+  --brand-hover: #a82c10;
+  --border: rgba(24, 21, 18, .1);
+  --shadow: 0 10px 28px rgba(24, 21, 18, .1);
+  --focus-ring: #181512;
+  --scrollbar-thumb: rgba(87, 80, 73, .28);
   color-scheme: light;
 }
 
@@ -125,11 +129,11 @@ html[data-theme="amber"] {
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
 body {
-  font-family: "Noto Sans Thai", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-  background: var(--chat);
+  font-family: "Plus Jakarta Sans", "IBM Plex Sans Thai", "Noto Sans Thai", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  background: var(--rail);
   color: var(--text);
-  font-size: 14.5px;
-  line-height: 1.45;
+  font-size: 0.92rem;
+  line-height: 1.5;
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
 }
@@ -167,12 +171,13 @@ code {
   position: fixed; inset: 0; z-index: 50; display: grid; place-items: center;
   padding: 24px 16px; overflow-y: auto; overscroll-behavior: contain;
   background:
-    radial-gradient(800px circle at 15% 15%, color-mix(in srgb, var(--brand) 20%, transparent), transparent 60%),
+    radial-gradient(720px circle at 18% 12%, color-mix(in oklab, var(--brand) 22%, transparent), transparent 58%),
+    radial-gradient(560px circle at 86% 88%, color-mix(in oklab, var(--amber) 12%, transparent), transparent 60%),
     linear-gradient(180deg, var(--rail), var(--chat));
 }
 .login-card {
-  width: min(420px, 100%); background: var(--elevated); color: var(--text);
-  border: 1px solid var(--border); border-radius: 16px; padding: 28px;
+  width: min(430px, 100%); background: var(--elevated); color: var(--text);
+  border: 1px solid var(--border); border-radius: 20px; padding: 28px;
   box-shadow: var(--shadow);
 }
 .login-brand { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; text-align: left; }
@@ -189,10 +194,12 @@ code {
   background: var(--elevated); border: 1px solid var(--border); color: var(--text); max-width: 210px;
 }
 .login-mark {
-  width: 48px; height: 48px; flex: 0 0 48px; border-radius: 12px;
-  display: grid; place-items: center; background: var(--brand); color: #fff;
+  width: 48px; height: 48px; flex: 0 0 48px; border-radius: 14px;
+  display: grid; place-items: center;
+  background: linear-gradient(135deg, var(--brand), var(--brand-solid, var(--brand))); color: #fff;
+  box-shadow: 0 6px 18px color-mix(in oklab, var(--brand) 36%, transparent);
 }
-.login-brand-text h1 { margin: 0; font-size: 21px; line-height: 1.25; letter-spacing: -.3px; }
+.login-brand-text h1 { margin: 0; font-size: 1.35rem; line-height: 1.25; letter-spacing: -.02em; text-wrap: balance; }
 .login-sub { margin: 3px 0 0; color: var(--muted); font-size: 13px; }
 
 .auth-tabs {
@@ -226,8 +233,8 @@ code {
 .password-toggle[aria-pressed="true"] { color: var(--brand); }
 
 .primary-btn {
-  width: 100%; min-height: 44px; padding: 10px 18px; border-radius: 8px;
-  background: var(--brand); color: #fff; font-weight: 650;
+  width: 100%; min-block-size: 44px; padding: 10px 18px; border-radius: 10px;
+  background: var(--brand-solid, var(--brand)); color: #fff; font-weight: 650;
 }
 .primary-btn:hover { background: var(--brand-hover); }
 .primary-btn:disabled { opacity: .6; cursor: wait; }

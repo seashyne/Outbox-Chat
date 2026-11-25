@@ -1,6 +1,6 @@
 /**
- * Account management UI: current membership badge, email field,
- * password rotation modal, and permanent account deletion modal.
+ * Account management UI: dedicated Account & Security Settings tab with membership badge,
+ * optional email saver, password rotation modal, and permanent account deletion modal.
  */
 
 import { api, toast } from './api.js';
@@ -29,29 +29,11 @@ function fmtDate(ts) {
   try { return new Date(ts).toLocaleDateString(); } catch { return ''; }
 }
 
-/** Ensures the Account & Security section exists in Settings and refreshes its values. */
-export function syncAccountSettingsSection(isGlobalScope, onLogout) {
+/** Renders the dedicated Account & Security Settings pane (`#settingsPaneAccount`). */
+export function syncAccountSettingsSection(onLogout) {
   if (onLogout) settingsLogoutCb = onLogout;
-  const pane = $('settingsPaneProfile');
+  const pane = $('settingsPaneAccount');
   if (!pane) return;
-  let box = $('accountSecuritySection');
-  if (!box) {
-    box = document.createElement('div');
-    box.id = 'accountSecuritySection';
-    box.className = 'account-sec-box';
-    const actionsRow = pane.querySelector('.settings-actions');
-    pane.insertBefore(box, actionsRow || null);
-    box.addEventListener('click', (e) => {
-      const btn = e.target.closest('[data-account-action]');
-      if (!btn) return;
-      const act = btn.dataset.accountAction;
-      if (act === 'open-store') openStoreModal();
-      else if (act === 'change-password') openChangePasswordModal();
-      else if (act === 'delete-account') openDeleteAccountModal(settingsLogoutCb);
-    });
-  }
-  box.hidden = !isGlobalScope;
-  if (!isGlobalScope) return;
 
   const acc = state.account || { plan: state.me?.plan || 'free', max_upload_bytes: 5 * 1024 * 1024, max_stickers: 24, email: '' };
   const activePlan = acc.plan || 'free';
@@ -60,25 +42,55 @@ export function syncAccountSettingsSection(isGlobalScope, onLogout) {
   const expText = acc.plan_expires_at && activePlan !== 'free'
     ? t('account.planActiveUntil', { date: fmtDate(acc.plan_expires_at) })
     : '';
-  const prevEmail = $('settingsEmail')?.value;
-  box.innerHTML = `
-    <div class="account-sec-head">
-      <span>${escapeHtml(t('account.sectionTitle'))}</span>
-      ${planBadgeHtml(activePlan)}
-    </div>
-    <div class="account-plan-card">
-      <div class="account-plan-meta">
-        <b>${escapeHtml(planLabelText(activePlan))}</b>
-        <span>${escapeHtml(t('account.planQuotaHint', { mb, stickers }))}${expText ? ` • ${escapeHtml(expText)}` : ''}</span>
+  pane.innerHTML = `
+    <div id="accountSecuritySection" class="account-sec-box" style="margin-top:0">
+      <div class="account-sec-head">
+        <span>${escapeHtml(t('account.sectionTitle'))}</span>
+        ${planBadgeHtml(activePlan)}
       </div>
-      <button type="button" class="btn-secondary-sm" data-account-action="open-store">${escapeHtml(t('account.managePlanBtn'))}</button>
-    </div>
-    <label for="settingsEmail">${escapeHtml(t('account.emailLabel'))}</label>
-    <input id="settingsEmail" type="email" maxlength="120" placeholder="${escapeHtml(t('account.emailPh'))}" value="${escapeHtml(prevEmail !== undefined ? prevEmail : (acc.email || ''))}" />
-    <div class="account-sec-actions">
-      <button type="button" class="btn-secondary-sm" data-account-action="change-password">${escapeHtml(t('account.changePwBtn'))}</button>
-      <button type="button" class="btn-danger-sm" data-account-action="delete-account">${escapeHtml(t('account.deleteBtn'))}</button>
+      <div class="account-plan-card">
+        <div class="account-plan-meta">
+          <b>${escapeHtml(planLabelText(activePlan))}</b>
+          <span>${escapeHtml(t('account.planQuotaHint', { mb, stickers }))}${expText ? ` · ${escapeHtml(expText)}` : ''}</span>
+        </div>
+        <button type="button" class="btn-primary-sm" data-account-action="open-store">${escapeHtml(t('account.managePlanBtn'))}</button>
+      </div>
+      <label for="settingsEmail">${escapeHtml(t('account.emailLabel'))}</label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input id="settingsEmail" type="email" maxlength="120" placeholder="${escapeHtml(t('account.emailPh'))}" value="${escapeHtml(acc.email || '')}" style="flex:1" />
+        <button type="button" class="btn-secondary-sm" data-account-action="save-email">${escapeHtml(t('account.saveEmailBtn'))}</button>
+      </div>
+      <div class="account-sec-actions">
+        <button type="button" class="btn-secondary-sm" data-account-action="change-password">${escapeHtml(t('account.changePwBtn'))}</button>
+        <button type="button" class="btn-danger-sm" data-account-action="delete-account">${escapeHtml(t('account.deleteBtn'))}</button>
+        <button type="button" class="btn-secondary-sm" data-account-action="logout" style="margin-inline-start:auto">${escapeHtml(t('settings.logoutBtn'))}</button>
+      </div>
     </div>`;
+
+  if (!pane.dataset.bound) {
+    pane.dataset.bound = '1';
+    pane.addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-account-action]');
+      if (!btn) return;
+      const act = btn.dataset.accountAction;
+      if (act === 'open-store') openStoreModal();
+      else if (act === 'change-password') openChangePasswordModal();
+      else if (act === 'delete-account') openDeleteAccountModal(settingsLogoutCb);
+      else if (act === 'logout' && typeof settingsLogoutCb === 'function') settingsLogoutCb(false);
+      else if (act === 'save-email') {
+        btn.disabled = true;
+        $('settingsError').textContent = '';
+        try {
+          const email = $('settingsEmail')?.value.trim() || '';
+          const res = await api('/users/@me', { method: 'PATCH', body: JSON.stringify({ email }) });
+          if (res?.account) state.account = res.account;
+          toast(t('account.emailSavedToast'), 'ok');
+        } catch (err) {
+          $('settingsError').textContent = err.message || t('settings.saveProfileErr');
+        } finally { btn.disabled = false; }
+      }
+    });
+  }
 }
 
 /** Opens the modal for changing the current account password and rotating the session token. */

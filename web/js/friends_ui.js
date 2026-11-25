@@ -3,9 +3,10 @@
  * incoming/outgoing lists, and opening private chats from the Home view or profile card.
  */
 
+import { planBadgeHtml } from './account_ui.js';
 import { api, handleError, toast } from './api.js';
 import { t } from './i18n.js';
-import { $, avatar, escapeHtml, isOnline, state, statusLabel, userStatusKey } from './state.js';
+import { $, ICONS, avatar, escapeHtml, isOnline, safeColor, state, statusLabel, userStatusKey } from './state.js';
 
 let activeTab = 'all';
 
@@ -147,7 +148,33 @@ export function renderFriendsStage(refreshUi, openDmCb) {
       </div>`;
   };
 
+  const spacesHtml = (state.servers || []).map((s) => `
+    <button type="button" class="space-card" data-home-action="server" data-id="${escapeHtml(s.id)}" style="--srv-accent:${safeColor(s.accent_color, '#ff5c35')}">
+      <span class="space-card-icon">${escapeHtml(s.icon || s.name.slice(0, 2).toUpperCase())}</span>
+      <span class="space-card-meta">
+        <b>${escapeHtml(s.name)}</b>
+        <small>${escapeHtml(t('home.membersCount', { count: s.members?.length || 1 }))} · ${escapeHtml(t('home.channelsCount', { count: s.channels?.length || 1 }))}</small>
+      </span>
+    </button>`).join('');
+
   stage.innerHTML = `
+    <div class="home-hero">
+      <div class="home-hero-brand">
+        <div class="home-hero-mark" aria-hidden="true">${ICONS.outboxLogo}</div>
+        <div class="home-hero-text">
+          <h2>${escapeHtml(t('home.welcome', { name: state.me?.display_name || 'Outbox' }))} ${planBadgeHtml(state.account?.plan || state.me?.plan)}</h2>
+          <p>${escapeHtml(t('home.sub'))}</p>
+        </div>
+      </div>
+      <div class="home-hero-actions">
+        <button type="button" class="btn-primary-sm" data-home-action="create-space">${escapeHtml(t('home.newSpaceBtn'))}</button>
+        <button type="button" class="btn-secondary-sm" data-home-action="explore">${escapeHtml(t('home.exploreBtn'))}</button>
+        <button type="button" class="btn-secondary-sm" data-home-action="store">${escapeHtml(t('rail.store'))}</button>
+      </div>
+    </div>
+    ${spacesHtml ? `
+      <div class="home-section-head"><span>${escapeHtml(t('home.spacesTitle', { count: state.servers.length }))}</span></div>
+      <div class="home-spaces-grid">${spacesHtml}</div>` : ''}
     <div class="friends-head">
       <h2>${escapeHtml(t('friends.heading'))}</h2>
       <div class="friends-tabs" role="tablist">

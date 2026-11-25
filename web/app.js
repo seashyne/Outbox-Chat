@@ -12,6 +12,7 @@ import { openPinnedMessagesModal, openServerSearchModal, openStickerPickerModal 
 import { bindMessageEvents, syncComposerAccess } from './js/composer.js';
 import { acceptFriendRequest, openDirectChat, sendFriendRequest } from './js/friends_ui.js';
 import { applyStaticTranslations } from './js/i18n.js';
+import { bindStudioShellNav, closeInspector, isInspectorOpen, toggleMembersPanel } from './js/inspector_ui.js';
 import { captureInviteFromUrl, openInviteModal, openJoinInvitePrompt } from './js/invites_ui.js';
 import { openChannelMediaModal } from './js/media_gallery.js';
 import { joinMeetingRoom, leaveMeetingRoom, startDmCall, updateMeetingControl } from './js/meeting_ui.js';
@@ -147,11 +148,8 @@ $('chatHeader').addEventListener('click', (e) => {
   else if (action === 'open-media') openChannelMediaModal();
   else if (action === 'open-pins') openPinnedMessagesModal();
   else if (action === 'server-search') openServerSearchModal();
-  else if (action === 'toggle-members') {
-    state.membersVisible = !state.membersVisible;
-    $('memberList').hidden = !state.membersVisible;
-    renderHeader();
-  } else if (action === 'toggle-sidebar') setMobileSidebar(!$('sidebar').classList.contains('mobile-open'));
+  else if (action === 'toggle-members') toggleMembersPanel(renderHeader);
+  else if (action === 'toggle-sidebar') setMobileSidebar(!$('sidebar').classList.contains('mobile-open'));
   else if (action === 'toggle-theme') toggleTheme();
   else if (action === 'dm-call-voice' || action === 'dm-call-video') {
     const refreshVoiceUi = () => { renderSidebar(); renderHeader(); renderVoicePanel(); renderVoiceBar(); renderUserPanel(); };
@@ -211,11 +209,9 @@ $('dropdown').addEventListener('click', (e) => {
   } else if (action === 'channel-edit') { const cid = btn.dataset.id; closeOverlays(); openEditChannelModal(cid, syncComposerAccess); }
   else if (action === 'channel-delete') { const cid = btn.dataset.id; closeOverlays(); openConfirmDeleteChannel(cid); }
   else if (action === 'leave-server') { const sid = btn.dataset.id; closeOverlays(); openConfirmLeaveServer(sid); }
-  else if (action === 'toggle-members') {
-    state.membersVisible = !state.membersVisible;
-    $('memberList').hidden = !state.membersVisible;
-    renderHeader(); closeOverlays();
-  } else if (action === 'toggle-theme') { toggleTheme(); closeOverlays(); }
+  else if (action === 'toggle-members') { toggleMembersPanel(renderHeader); closeOverlays(); }
+  else if (action === 'logout') { closeOverlays(); logout(false); }
+  else if (action === 'toggle-theme') { toggleTheme(); closeOverlays(); }
   else if (action === 'server-invite') { closeOverlays(); openInviteModal(state.currentServerId); }
   else if (action === 'server-search') { closeOverlays(); openServerSearchModal(); }
   else if (action === 'attach-file') { closeOverlays(); $('chatFileInput')?.click(); }
@@ -273,12 +269,15 @@ $('profilePopout').addEventListener('click', (e) => {
 });
 
 bindSettingsEvents(logout);
+bindStudioShellNav({ selectFriendsHome, selectServer, openCreateServer, openDirectory, openStoreModal: () => openStoreModal().catch(handleError), openSettingsModal, setMobileSidebar, renderHeader });
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     if (!$('settingsBackdrop').hidden) { closeSettingsModal(true); return; }
     if (!$('modalBackdrop').hidden) { closeModal(); return; }
     if (state.popover) { closeOverlays(true); return; }
+    if (isInspectorOpen()) { closeInspector(true); return; }
+    if ($('memberList')?.classList.contains('mobile-open')) { $('memberList').classList.remove('mobile-open'); return; }
     if ($('sidebar')?.classList.contains('mobile-open')) { setMobileSidebar(false); return; }
     if (state.replyTo) { clearReply(); return; }
     if (state.searchOpen) { clearSearch(); return; }

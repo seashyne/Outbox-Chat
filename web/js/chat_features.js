@@ -6,6 +6,7 @@
 import { appendMessage, selectChannel } from './actions.js';
 import { api, handleError, toast } from './api.js';
 import { t } from './i18n.js';
+import { closeInspector, openInspector } from './inspector_ui.js';
 import { closeModal, openModal } from './modals.js';
 import { resizeImageFile } from './profile_helpers.js';
 import { renderMessages, scrollToBottom } from './render_chat.js';
@@ -84,16 +85,14 @@ export async function togglePinMessage(messageId) {
   } catch (error) { handleError(error); }
 }
 
-/** Opens the Pinned Messages list modal for the current channel or DM. */
+/** Opens Pinned Messages in the right-side Inspector Panel for the current channel or DM. */
 export async function openPinnedMessagesModal() {
   const ch = currentChannel();
   if (!ch) return;
-  openModal({
+  openInspector({
     title: t('chat.pinsTitle'),
-    desc: t('chat.pinsDesc'),
-    hideSubmit: true,
-    wide: true,
-    html: `<div id="pinsListBox" style="max-height:320px;overflow-y:auto"></div>`,
+    subtitle: t('chat.pinsDesc'),
+    html: `<div id="pinsListBox"></div>`,
   });
   const box = $('pinsListBox');
   const renderList = async () => {
@@ -117,27 +116,25 @@ export async function openPinnedMessagesModal() {
   try { await renderList(); } catch (err) { box.textContent = err.message; }
   box?.addEventListener('click', async (e) => {
     const gotoBtn = e.target.closest('[data-pin-goto]');
-    if (gotoBtn) { closeModal(); jumpAndFlash(gotoBtn.dataset.pinGoto); return; }
+    if (gotoBtn) { jumpAndFlash(gotoBtn.dataset.pinGoto); return; }
     const unpinBtn = e.target.closest('[data-pin-unpin]');
     if (unpinBtn) { await togglePinMessage(unpinBtn.dataset.pinUnpin); await renderList(); }
   });
 }
 
-/** Opens the Cross-Channel Server Search modal (`GET /api/servers/{id}/search?q=...`). */
+/** Opens Cross-Channel Server Search in the right-side Inspector Panel. */
 export function openServerSearchModal() {
   const srv = currentServer();
   if (!srv) return;
-  openModal({
+  openInspector({
     title: t('chat.serverSearchTitle'),
-    desc: t('chat.serverSearchDesc', { name: srv.name }),
-    hideSubmit: true,
-    wide: true,
+    subtitle: t('chat.serverSearchDesc', { name: srv.name }),
     html: `
       <form id="srvSearchForm" style="display:flex;gap:8px">
         <input id="srvSearchInput" type="text" placeholder="${escapeHtml(t('chat.serverSearchPh'))}" style="flex:1" />
-        <button type="submit" class="primary-btn" style="width:auto;min-width:96px;margin:0">${escapeHtml(t('chat.serverSearchBtn'))}</button>
+        <button type="submit" class="primary-btn" style="width:auto;min-width:76px;margin:0">${escapeHtml(t('chat.serverSearchBtn'))}</button>
       </form>
-      <div id="srvSearchResults" style="margin-top:12px;max-height:300px;overflow-y:auto"></div>`,
+      <div id="srvSearchResults" style="margin-top:8px"></div>`,
   });
   const resBox = $('srvSearchResults');
   $('srvSearchForm')?.addEventListener('submit', async (e) => {
@@ -164,7 +161,7 @@ export function openServerSearchModal() {
   resBox?.addEventListener('click', async (e) => {
     const row = e.target.closest('[data-hit-ch]');
     if (!row) return;
-    closeModal();
+    if (window.innerWidth <= 980) closeInspector(false);
     await selectChannel(row.dataset.hitCh);
     jumpAndFlash(row.dataset.hitId);
   });

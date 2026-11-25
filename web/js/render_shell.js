@@ -6,6 +6,7 @@
 import { planBadgeHtml } from './account_ui.js';
 import { renderHomeSidebar } from './friends_ui.js';
 import { t } from './i18n.js';
+import { renderMobileNav } from './inspector_ui.js';
 import { renderMeetingStage } from './meeting_ui.js';
 import { resolveProfile } from './profile_helpers.js';
 import { renderMessages } from './render_chat.js';
@@ -43,17 +44,19 @@ export function renderRail() {
     </button>`;
   }).join('');
   $('rail').innerHTML = `
-    <button class="rail-btn ${state.homeMode ? 'active' : ''}" data-action="friends" title="${escapeHtml(t('rail.friends'))}" data-tooltip="${escapeHtml(t('rail.friendsShort'))}" aria-label="${escapeHtml(t('rail.friendsShort'))}">
-      <span class="rail-pill"></span>${ICONS.friends}
-      ${reqCount ? `<span class="rail-badge">${reqCount}</span>` : ''}
+    <button class="rail-btn rail-inbox ${state.homeMode ? 'active' : ''}" data-action="friends" title="${escapeHtml(t('rail.friends'))}" data-tooltip="${escapeHtml(t('rail.friendsShort'))}" aria-label="${escapeHtml(t('rail.friendsShort'))}">
+      <span class="rail-pill"></span>${ICONS.outboxLogo}${reqCount ? `<span class="rail-badge">${reqCount}</span>` : ''}
     </button>
-    <button class="rail-btn home" data-action="directory" title="${escapeHtml(t('rail.directory'))}" data-tooltip="${escapeHtml(t('rail.directory'))}" aria-label="${escapeHtml(t('rail.directory'))}">${ICONS.home}</button>
     <div class="rail-divider"></div>
     ${servers}
     <button class="rail-btn add" data-action="create-server" title="${escapeHtml(t('rail.createServer'))}" data-tooltip="${escapeHtml(t('rail.createServer'))}" aria-label="${escapeHtml(t('rail.createServer'))}">+</button>
-    <button class="rail-btn theme" data-action="open-store" title="${escapeHtml(t('rail.store'))}" data-tooltip="${escapeHtml(t('rail.store'))}" aria-label="${escapeHtml(t('rail.store'))}">${ICONS.store}</button>
-    ${state.account?.is_platform_admin ? `<button class="rail-btn theme" data-action="open-admin" title="${escapeHtml(t('rail.admin'))}" data-tooltip="${escapeHtml(t('rail.admin'))}" aria-label="${escapeHtml(t('rail.admin'))}">${ICONS.adminShield}</button>` : ''}
-    <button class="rail-btn theme" data-action="theme" title="${escapeHtml(t('rail.settings'))}" data-tooltip="${escapeHtml(t('rail.settings'))}" aria-label="${escapeHtml(t('rail.settings'))}">${ICONS.settings}</button>`;
+    <button class="rail-btn home" data-action="directory" title="${escapeHtml(t('rail.directory'))}" data-tooltip="${escapeHtml(t('rail.directory'))}" aria-label="${escapeHtml(t('rail.directory'))}">${ICONS.home}</button>
+    <div class="rail-bottom">
+      <button class="rail-btn rail-util" data-action="open-store" title="${escapeHtml(t('rail.store'))}" data-tooltip="${escapeHtml(t('rail.store'))}" aria-label="${escapeHtml(t('rail.store'))}">${ICONS.store}</button>
+      ${state.account?.is_platform_admin ? `<button class="rail-btn rail-util" data-action="open-admin" title="${escapeHtml(t('rail.admin'))}" data-tooltip="${escapeHtml(t('rail.admin'))}" aria-label="${escapeHtml(t('rail.admin'))}">${ICONS.adminShield}</button>` : ''}
+      <button class="rail-btn rail-util" data-action="theme" title="${escapeHtml(t('rail.settings'))}" data-tooltip="${escapeHtml(t('rail.settings'))}" aria-label="${escapeHtml(t('rail.settings'))}">${ICONS.settings}</button>
+    </div>`;
+  renderMobileNav();
 }
 
 export function renderVoicePanel() {
@@ -194,7 +197,6 @@ export function renderUserPanel() {
       <button class="icon-btn ${state.muted ? 'off' : ''}" data-action="toggle-mute" title="${escapeHtml(state.muted ? t('voice.unmuteMic') : t('voice.muteMic'))}" aria-label="${escapeHtml(t('voice.micLabel'))}">${ICONS.mic}</button>
       <button class="icon-btn ${state.deafened ? 'off' : ''}" data-action="toggle-deafen" title="${escapeHtml(state.deafened ? t('voice.undeafen') : t('voice.deafen'))}" aria-label="${escapeHtml(t('voice.speakerLabel'))}">${ICONS.headphones}</button>
       <button class="icon-btn" data-action="open-settings" title="${escapeHtml(t('settings.title'))}" aria-label="${escapeHtml(t('rail.settings'))}">${ICONS.settings}</button>
-      <button class="icon-btn" data-action="logout" title="${escapeHtml(t('settings.logoutBtn'))}" aria-label="${escapeHtml(t('settings.logoutBtn'))}">${ICONS.logout}</button>
     </span>`;
 }
 
@@ -231,7 +233,7 @@ export function renderHeader() {
       ${channel.kind === 'text' ? `
         <button class="icon-btn" data-action="open-threads" title="${escapeHtml(t('thread.headerTitle'))}" aria-label="${escapeHtml(t('thread.headerTitle'))}">${ICONS.thread}</button>
         <button class="icon-btn" data-action="open-media" title="${escapeHtml(t('gallery.headerTitle'))}" aria-label="${escapeHtml(t('gallery.headerTitle'))}">${ICONS.gallery}</button>
-        <button class="icon-btn" data-action="open-pins" title="${escapeHtml(t('chat.pinsTitle'))}" aria-label="${escapeHtml(t('chat.pinsTitle'))}">${ICONS.pin}</button>` : ''}
+        <button class="icon-btn" data-action="open-pins" title="${escapeHtml(t('chat.pinsTitle'))}" aria-label="${escapeHtml(t('chat.pinsTitle'))}">${ICONS.pin}</button><span class="header-sep" aria-hidden="true"></span>` : ''}
       <button class="icon-btn ${state.searchOpen ? 'active' : ''}" data-action="toggle-search" title="${escapeHtml(t('header.searchTitle'))}" aria-label="${escapeHtml(t('header.searchAria'))}">${ICONS.search}</button>
       <button class="icon-btn ${state.membersVisible ? 'active' : ''}" data-action="toggle-members" title="${escapeHtml(t('header.membersTitle'))}" aria-label="${escapeHtml(t('header.membersAria'))}">${ICONS.members}</button>
     </div>`;

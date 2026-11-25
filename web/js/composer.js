@@ -6,7 +6,7 @@
 import { clearReply, clearSearch, sendMessage, setReply, toggleReaction } from './actions.js';
 import { api, handleError, toast } from './api.js';
 import { addAttachmentFiles, openAttachmentPreview, removePendingAttachment } from './attachments.js';
-import { openEditMessageModal, togglePinMessage } from './chat_features.js';
+import { openEditMessageModal, openStickerPickerModal, togglePinMessage } from './chat_features.js';
 import { t } from './i18n.js';
 import { openComposerMenu, openEmojiPicker, openProfile, pickEmoji } from './menus.js';
 import { autoGrow, renderMessages, scrollToBottom, updateJumpButton } from './render_chat.js';
@@ -28,6 +28,8 @@ export function syncComposerAccess() {
   const blocked = timedOut || readOnly;
   input.disabled = blocked;
   if (attachBtn) attachBtn.disabled = blocked;
+  if ($('attachFileBtn')) $('attachFileBtn').disabled = blocked;
+  if ($('stickerQuickBtn')) $('stickerQuickBtn').disabled = blocked;
   if (micBtn) micBtn.disabled = blocked;
   if (sendBtn && blocked) sendBtn.disabled = true;
   if (timedOut) input.placeholder = t('mod.timedOutNotice');
@@ -91,6 +93,8 @@ export function bindMessageEvents() {
   });
   $('sendBtn').addEventListener('click', sendMessage);
   $('attachBtn').addEventListener('click', (e) => openComposerMenu(e.currentTarget));
+  $('attachFileBtn')?.addEventListener('click', () => $('chatFileInput')?.click());
+  $('stickerQuickBtn')?.addEventListener('click', () => openStickerPickerModal());
   $('chatFileInput')?.addEventListener('change', (e) => {
     if (e.target.files?.length) addAttachmentFiles(e.target.files);
     e.target.value = '';

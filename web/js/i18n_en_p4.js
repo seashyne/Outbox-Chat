@@ -91,4 +91,27 @@ export default {
   'admin.updatedUserToast': 'User updated',
   'admin.ordersEmpty': 'No orders recorded yet',
   'admin.badgeAdmin': 'Platform Admin',
+
+  'settings.tabProfileOnly': 'Profile',
+  'settings.tabAccount': 'Account & Security',
+  'account.saveEmailBtn': 'Save Email',
+  'account.emailSavedToast': 'Email updated',
+
+  'home.welcome': 'Welcome back, {name}',
+  'home.sub': 'Personal chats, team workspaces, and clubs — neatly separated in one place',
+  'home.spacesTitle': 'Your Spaces & Clubs ({count})',
+  'home.newSpaceBtn': 'New Space',
+  'home.exploreBtn': 'Explore',
+  'home.membersCount': '{count} members',
+  'home.channelsCount': '{count} channels',
+
+  'composer.attachFileBtn': 'Attach file or photo',
+  'composer.stickersBtn': 'Stickers',
+  'composer.moreBtn': 'Formatting & extras',
+
+  'nav.inbox': 'Inbox',
+  'nav.spaces': 'Spaces',
+  'nav.members': 'Members',
+  'nav.store': 'Store',
+  'nav.settings': 'Settings',
 };

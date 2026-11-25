@@ -8,6 +8,7 @@ import { api, handleError } from './api.js';
 import { handleCheckoutReturnFromUrl } from './billing_ui.js';
 import { apiUrl } from './config.js';
 import { getLanguage, renderLanguageOptions, setLanguage, t, translateApiError } from './i18n.js';
+import { closeInspector } from './inspector_ui.js';
 import { consumePendingInvite } from './invites_ui.js';
 import { closeOverlays } from './menus.js';
 import { leaveMeetingRoom } from './meeting_ui.js';
@@ -127,6 +128,7 @@ export function logout(expired = false) {
   state.mentions.clear();
   state.replyTo = null;
   closeOverlays();
+  closeInspector(false);
   closeSettingsModal(false);
   renderDmCallBanner(null);
   if (state.ws) { state.ws.onclose = null; state.ws.close(); }

@@ -91,4 +91,27 @@ export default {
   'admin.updatedUserToast': 'อัปเดตข้อมูลผู้ใช้แล้ว',
   'admin.ordersEmpty': 'ยังไม่มีรายการสั่งซื้อในระบบ',
   'admin.badgeAdmin': 'ผู้ดูแลระบบ',
+
+  'settings.tabProfileOnly': 'โปรไฟล์',
+  'settings.tabAccount': 'บัญชีและความปลอดภัย',
+  'account.saveEmailBtn': 'บันทึกอีเมล',
+  'account.emailSavedToast': 'บันทึกอีเมลเรียบร้อยแล้ว',
+
+  'home.welcome': 'ยินดีต้อนรับ, {name}',
+  'home.sub': 'แชทส่วนตัว พื้นที่ทีมงาน และคลับของคุณรวมอยู่ในที่เดียว',
+  'home.spacesTitle': 'พื้นที่ทีมและคลับของคุณ ({count})',
+  'home.newSpaceBtn': 'สร้างพื้นที่ใหม่',
+  'home.exploreBtn': 'สำรวจพื้นที่',
+  'home.membersCount': '{count} สมาชิก',
+  'home.channelsCount': '{count} ห้อง',
+
+  'composer.attachFileBtn': 'แนบไฟล์หรือรูปภาพ',
+  'composer.stickersBtn': 'สติกเกอร์',
+  'composer.moreBtn': 'จัดรูปแบบข้อความ',
+
+  'nav.inbox': 'หน้าหลัก',
+  'nav.spaces': 'ห้องแชท',
+  'nav.members': 'สมาชิก',
+  'nav.store': 'ร้านค้า',
+  'nav.settings': 'ตั้งค่า',
 };

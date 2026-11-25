@@ -6,6 +6,7 @@
 import { api, handleError, toast } from './api.js';
 import { renderMessageAttachments } from './attachments.js';
 import { t } from './i18n.js';
+import { openInspector } from './inspector_ui.js';
 import { openModal } from './modals.js';
 import { resolveProfile } from './profile_helpers.js';
 import { renderMessages } from './render_chat.js';
@@ -36,14 +37,13 @@ function appendThreadMsgDom(msg) {
   box.scrollTop = box.scrollHeight;
 }
 
-/** Opens the interactive discussion view modal for an existing thread. */
+/** Opens the interactive discussion stream in the right-side Inspector Panel. */
 export async function openThreadViewModal(thread) {
   activeThreadId = thread.id;
-  openModal({
+  openInspector({
     title: thread.title,
-    desc: t('thread.viewDesc', { count: thread.message_count ?? 0 }),
-    wide: true,
-    hideSubmit: true,
+    subtitle: t('thread.viewDesc', { count: thread.message_count ?? 0 }),
+    onClose: () => { activeThreadId = null; },
     html: `
       <div id="threadStream" class="thread-stream"><p class="gal-empty">${escapeHtml(t('thread.loading'))}</p></div>
       <form id="threadReplyForm" class="thread-reply-form">
@@ -134,15 +134,13 @@ export async function openMessageThread(messageId) {
   });
 }
 
-/** Lists active threads in the active channel and lets members create a standalone topic thread. */
+/** Lists active channel threads inside the right-side Inspector Panel. */
 export async function openChannelThreadsModal() {
   const ch = currentChannel();
   if (!ch || ch.kind !== 'text') return;
-  openModal({
+  openInspector({
     title: t('thread.listTitle', { name: ch.name }),
-    desc: t('thread.listDesc'),
-    wide: true,
-    hideSubmit: true,
+    subtitle: t('thread.listDesc'),
     html: `
       <form id="newChanThreadForm" class="thread-reply-form" style="margin:0 0 12px">
         <label for="newChanThreadTitle" class="visually-hidden">${escapeHtml(t('thread.titleLabel'))}</label>

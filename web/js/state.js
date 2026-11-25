@@ -10,13 +10,13 @@ export { ICONS };
 export const $ = (id) => document.getElementById(id);
 
 export const DEFAULT_CUSTOM_COLORS = {
-  brand: '#5865f2',
-  sidebar: '#2b2d31',
-  chat: '#313338',
+  brand: '#ff5c35',
+  sidebar: '#181615',
+  chat: '#201e1c',
 };
 
 export const AVATAR_COLORS = [
-  '#5865f2', '#eb459e', '#ed4245', '#faa61a', '#23a559', '#1abc9c', '#3498db', '#9b59b6',
+  '#ff5c35', '#0ea5a4', '#f59e0b', '#ec4899', '#22c55e', '#3b82f6', '#8b5cf6', '#ef4444',
 ];
 
 export const VALID_THEMES = ['dark', 'light', 'slate', 'forest', 'midnight', 'amber', 'custom'];

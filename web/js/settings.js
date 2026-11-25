@@ -49,7 +49,7 @@ function loadScopeFields() {
   draftAvatarUrl = isSrv ? (sp.avatar_url || '') : (state.me.avatar_url || '');
   draftBannerUrl = isSrv ? (sp.banner_url || '') : (state.me.banner_url || '');
   $('settingsStatusSelect').value = state.myStatus || 'online';
-  syncAccountSettingsSection(!isSrv, logoutCallback);
+  syncAccountSettingsSection(logoutCallback);
   syncSettingsPreview();
 }
 
@@ -84,16 +84,18 @@ export function syncSettingsPreview() {
   if (hexInput && document.activeElement !== hexInput) hexInput.value = normalizeHex6(draftAvatarColor);
 }
 
-/** Switches between Profile & Appearance tabs inside the Settings dialog. */
+/** Switches between Profile, Account & Security, and Appearance tabs inside Settings. */
 export function switchSettingsTab(tab) {
-  settingsTab = tab === 'appearance' ? 'appearance' : 'profile';
+  settingsTab = ['profile', 'account', 'appearance'].includes(tab) ? tab : 'profile';
   document.querySelectorAll('.settings-tab').forEach((el) => {
     const active = el.dataset.settingsTab === settingsTab;
     el.classList.toggle('active', active);
     el.setAttribute('aria-selected', active ? 'true' : 'false');
   });
   $('settingsPaneProfile').hidden = settingsTab !== 'profile';
+  if ($('settingsPaneAccount')) $('settingsPaneAccount').hidden = settingsTab !== 'account';
   $('settingsPaneAppearance').hidden = settingsTab !== 'appearance';
+  if (settingsTab === 'account') syncAccountSettingsSection(logoutCallback);
   $('settingsError').textContent = '';
 }
 

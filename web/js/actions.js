@@ -7,6 +7,7 @@ import { api, handleError, toast } from './api.js';
 import { clearPendingAttachments } from './attachments.js';
 import { loadFriends, openDirectChat, renderFriendsStage } from './friends_ui.js';
 import { ALLOWED_LANGUAGES, setLanguage, t } from './i18n.js';
+import { closeInspector } from './inspector_ui.js';
 import {
   appendMessage,
   clearReply,
@@ -69,7 +70,7 @@ export async function loadBootstrap() {
   state.servers = data.servers;
   state.online = new Set(data.online);
   state.voice = data.voice || {};
-  state.homeMode = false;
+  state.homeMode = true;
   state.dmChannel = null;
   state.dmPeer = null;
   state.messageCache.clear();
@@ -155,6 +156,7 @@ export function selectFriendsHome() {
   state.dmChannel = null;
   state.dmPeer = null;
   state.voiceChannelId = null;
+  closeInspector(false);
   resetChannelNav(false);
   renderAll();
   loadFriends().then(() => { if (state.homeMode) renderAll(); }).catch(() => {});
@@ -185,6 +187,7 @@ export async function selectServer(id) {
   const server = currentServer();
   state.currentChannelId = server?.channels.find((c) => c.kind === 'text')?.id || null;
   state.voiceChannelId = null;
+  closeInspector(false);
   resetChannelNav();
   updateComposerPlaceholder();
   renderAll();
