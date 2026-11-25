@@ -4,21 +4,12 @@
  */
 
 import { constantTimeEqual, hashPassword, randomSaltHex, utf8Length } from "./crypto.js";
+import { validateEmail } from "./handlers_account.js";
 import { parseImageUrl } from "./handlers_friends.js";
 import {
-  AVATAR_COLORS,
-  HttpError,
-  cleanPassword,
-  cleanText,
-  cmp,
-  defaultSettings,
-  isValidHexColor,
-  jsonResponse,
-  newId,
-  newToken,
-  nowIso,
-  publicUser,
-  readJson,
+  AVATAR_COLORS, HttpError, accountSummary, activePlan, cleanPassword, cleanText,
+  cmp, defaultSettings, isValidHexColor, jsonResponse, newId, newToken, nowIso,
+  publicUser, readJson,
 } from "./utils.js";
 
 const ALLOWED_THEMES = ["dark", "light", "slate", "forest", "midnight", "amber", "custom"];
@@ -37,6 +28,7 @@ export async function handleRegister(hub, request) {
   const salt = randomSaltHex();
   const passwordHash = await hashPassword(password, salt);
   const token = newToken();
+  const isFirstHuman = !Object.values(hub.store.users).some((u) => !u.bot);
   const user = {
     id: newId(),
     username,
@@ -46,6 +38,11 @@ export async function handleRegister(hub, request) {
     banner_url: null,
     bio: "",
     status_text: "",
+    email: null,
+    plan: "free",
+    plan_expires_at: null,
+    suspended: false,
+    platform_admin: isFirstHuman,
     token,
     bot: false,
     created_at: nowIso(),
@@ -67,7 +64,7 @@ export async function handleRegister(hub, request) {
   if (joinedDemo) {
     hub.emit({ type: "member_join", server_id: "demo", user: publicUser(user) });
   }
-  return jsonResponse({ token, user: publicUser(user) });
+  return jsonResponse({ token, user: publicUser(user), account: accountSummary(user) });
 }
 
 /** Authenticates user credentials and issues a new 64-hex session token. */
@@ -82,6 +79,7 @@ export async function handleLogin(hub, request) {
   if (!user || user.bot || !user.password_hash || !user.password_salt) {
     throw new HttpError(401, "invalid username or password");
   }
+  if (user.suspended) throw new HttpError(403, "account is suspended");
 
   const computedHash = await hashPassword(password, user.password_salt);
   if (!constantTimeEqual(computedHash, user.password_hash)) {
@@ -92,7 +90,7 @@ export async function handleLogin(hub, request) {
   hub.store.tokens[token] = user.id;
   user.token = token;
   hub.persistStore();
-  return jsonResponse({ token, user: publicUser(user) });
+  return jsonResponse({ token, user: publicUser(user), account: accountSummary(user) });
 }
 
 /** Revokes the caller's bearer token. */
@@ -139,6 +137,7 @@ export function handleBootstrap(hub, request) {
           status_text: u.status_text || "",
           bot: Boolean(u.bot),
           role: role || "member",
+          plan: activePlan(u),
         });
       }
     }
@@ -148,6 +147,7 @@ export function handleBootstrap(hub, request) {
 
   return jsonResponse({
     me,
+    account: accountSummary(currentUser),
     settings,
     servers,
     channels: channelsMap,
@@ -275,8 +275,18 @@ export async function handleUpdateProfile(hub, request) {
   if (body.banner_url !== undefined) user.banner_url = parseImageUrl(body.banner_url, 120000);
   if (body.bio !== undefined) user.bio = cleanProfileText(body.bio, 160, "bio");
   if (body.status_text !== undefined) user.status_text = cleanProfileText(body.status_text, 60, "status text");
+  if (body.email !== undefined) {
+    const email = body.email === null ? null : validateEmail(body.email);
+    if (email) {
+      const taken = Object.values(hub.store.users).some(
+        (u) => u.id !== user.id && (u.email || "").toLowerCase() === email
+      );
+      if (taken) throw new HttpError(409, "email is already in use");
+    }
+    user.email = email;
+  }
 
   hub.persistStore();
   hub.emit({ type: "user_update", user: publicUser(user) });
-  return jsonResponse({ user: publicUser(user) });
+  return jsonResponse({ user: publicUser(user), account: accountSummary(user) });
 }

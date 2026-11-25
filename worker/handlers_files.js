@@ -3,7 +3,7 @@
  * attachment validation, and channel media gallery handlers for OutboxHub.
  */
 
-import { CORS_HEADERS, HttpError, cleanText, jsonResponse, newId, nowIso } from "./utils.js";
+import { CORS_HEADERS, HttpError, PRO_UPLOAD_BYTES, activePlan, cleanText, jsonResponse, newId, nowIso, uploadLimitForPlan } from "./utils.js";
 
 export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 const CHUNK_BYTES = 512 * 1024;
@@ -38,8 +38,8 @@ export function validateAttachments(raw) {
       const fileId = data.slice("/api/files/".length);
       if (!isValidFileId(fileId)) throw new HttpError(400, "invalid attachment file url");
       const declared = Number.isFinite(Number(item.size)) ? Number(item.size) : 0;
-      if (declared < 0 || declared > MAX_UPLOAD_BYTES) {
-        throw new HttpError(400, "attachment exceeds 5 MB limit");
+      if (declared < 0 || declared > PRO_UPLOAD_BYTES) {
+        throw new HttpError(400, "attachment exceeds maximum plan limit");
       }
       size = declared;
     } else {
@@ -85,9 +85,10 @@ function sanitizeAsciiFilename(name) {
 /** Uploads a binary attachment (up to 5 MB) into DO SQLite chunked blob tables. */
 export async function handleUploadFile(hub, request) {
   const user = hub.authenticate(request);
+  const maxBytes = uploadLimitForPlan(activePlan(user));
   const bytes = new Uint8Array(await request.arrayBuffer());
-  if (bytes.byteLength === 0 || bytes.byteLength > MAX_UPLOAD_BYTES) {
-    throw new HttpError(400, "file must be between 1 byte and 5 MB");
+  if (bytes.byteLength === 0 || bytes.byteLength > maxBytes) {
+    throw new HttpError(400, `file must be between 1 byte and ${Math.round(maxBytes / (1024 * 1024))} MB`);
   }
   const mime = (request.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
   if (!ALLOWED_MIMES.has(mime)) throw new HttpError(400, `unsupported file type: ${mime}`);

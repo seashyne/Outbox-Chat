@@ -38,7 +38,25 @@ async fn main() -> std::io::Result<()> {
             "/users/@me/settings",
             get(handlers::get_settings).patch(handlers::update_settings),
         )
-        .route("/users/@me", patch(handlers::update_profile))
+        .route(
+            "/users/@me",
+            get(handlers::get_me)
+                .patch(handlers::update_profile)
+                .delete(handlers::delete_account),
+        )
+        .route("/users/@me/password", post(handlers::change_password))
+        .route("/users/@me/delete", post(handlers::delete_account))
+        .route("/billing/plans", get(handlers::list_plans))
+        .route("/billing/orders", get(handlers::list_my_orders))
+        .route("/billing/checkout", post(handlers::create_checkout))
+        .route("/billing/sandbox-complete", post(handlers::sandbox_complete))
+        .route("/billing/webhook", post(handlers::stripe_webhook))
+        .route("/billing/orders/{id}/sync", get(handlers::sync_order))
+        .route("/admin/claim", post(handlers::claim_platform_admin))
+        .route("/admin/overview", get(handlers::admin_overview))
+        .route("/admin/users", get(handlers::admin_list_users))
+        .route("/admin/users/{id}", patch(handlers::admin_update_user))
+        .route("/admin/orders", get(handlers::admin_list_orders))
         .route(
             "/servers",
             get(handlers::list_servers).post(handlers::create_server),
@@ -100,7 +118,7 @@ async fn main() -> std::io::Result<()> {
         .route(
             "/files",
             post(handlers::upload_file)
-                .layer(axum::extract::DefaultBodyLimit::max(6 * 1024 * 1024)),
+                .layer(axum::extract::DefaultBodyLimit::max(26 * 1024 * 1024)),
         )
         .route("/files/{id}", get(handlers::get_file))
         .route(

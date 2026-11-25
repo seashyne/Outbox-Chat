@@ -95,6 +95,7 @@ async fn test_user_settings_and_profile_flow() {
             banner_url: None,
             bio: Some("สวัสดีทีม Outbox".into()),
             status_text: Some("กำลังทำงาน".into()),
+            email: None,
         }),
     )
     .await

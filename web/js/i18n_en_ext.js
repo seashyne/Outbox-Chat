@@ -2,7 +2,10 @@
  * Extended settings, voice, and meeting UI translations (`en`).
  */
 
+import p4 from './i18n_en_p4.js';
+
 export default {
+  ...p4,
   'settings.title': 'User, Theme & Language Settings',
   'settings.closeTitle': 'Close (Esc)',
   'settings.closeAria': 'Close settings',

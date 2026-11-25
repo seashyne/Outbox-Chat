@@ -62,6 +62,7 @@ function loadStoredColors() {
 export const state = {
   token: localStorage.getItem('ob_token') || '',
   me: null,
+  account: null,
   settings: {
     theme: localStorage.getItem('ob_theme') || 'dark',
     custom_colors: loadStoredColors(),

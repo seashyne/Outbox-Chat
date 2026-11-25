@@ -74,6 +74,11 @@ pub async fn register(
         banner_url: None,
         bio: String::new(),
         status_text: String::new(),
+        email: None,
+        plan: "free".into(),
+        plan_expires_at: None,
+        suspended: false,
+        platform_admin: false,
         token: new_token(),
         bot: false,
         created_at: now(),
@@ -82,7 +87,7 @@ pub async fn register(
         settings: UserSettings::default(),
     };
 
-    let join_event = {
+    let (join_event, account) = {
         let mut store = state.store.write().map_err(|_| ApiError::Internal)?;
         if store
             .users
@@ -91,18 +96,22 @@ pub async fn register(
         {
             return Err(ApiError::Conflict("username is already taken".into()));
         }
-        store.tokens.insert(user.token.clone(), user.id.clone());
-        store.users.insert(user.id.clone(), user.clone());
+        let is_first_human = !store.users.values().any(|u| !u.bot);
+        let mut reg_user = user.clone();
+        reg_user.platform_admin = is_first_human;
+        store.tokens.insert(reg_user.token.clone(), reg_user.id.clone());
+        store.users.insert(reg_user.id.clone(), reg_user.clone());
 
-        if let Some(members) = store.members.get_mut("demo") {
-            members.insert(user.id.clone(), Role::Member);
+        let evt = if let Some(members) = store.members.get_mut("demo") {
+            members.insert(reg_user.id.clone(), Role::Member);
             Some(Event::MemberJoin {
                 server_id: "demo".into(),
-                user: user.public(),
+                user: reg_user.public(),
             })
         } else {
             None
-        }
+        };
+        (evt, reg_user)
     };
     state.persist();
     if let Some(event) = join_event {
@@ -110,8 +119,9 @@ pub async fn register(
     }
 
     Ok(Json(RegisterResponse {
-        token: user.token.clone(),
-        user: user.public(),
+        token: account.token.clone(),
+        user: account.public(),
+        account: account.account_summary(),
     }))
 }
 
@@ -149,6 +159,13 @@ pub async fn login(State(state): State<Arc<AppState>>, Json(body): Json<LoginReq
     if user.bot || user.password_hash.is_empty() || user.password_salt.is_empty() {
         return unauthorized_json();
     }
+    if user.suspended {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(serde_json::json!({ "error": "account is suspended", "status": 403 })),
+        )
+            .into_response();
+    }
     if !crate::crypto::verify_password(&body.password, &user.password_salt, &user.password_hash) {
         return unauthorized_json();
     }
@@ -180,6 +197,7 @@ pub async fn login(State(state): State<Arc<AppState>>, Json(body): Json<LoginReq
         Json(serde_json::json!(LoginResponse {
             token,
             user: user.public(),
+            account: user.account_summary(),
         })),
     )
         .into_response()
@@ -253,6 +271,7 @@ pub async fn bootstrap(
                             status_text: u.status_text.clone(),
                             bot: u.bot,
                             role: *role,
+                            plan: u.active_plan().to_string(),
                         });
                     }
                 }
@@ -266,6 +285,7 @@ pub async fn bootstrap(
 
     Ok(Json(Bootstrap {
         me,
+        account: current_user.account_summary(),
         settings: current_user.settings,
         servers,
         channels,

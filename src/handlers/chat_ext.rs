@@ -199,9 +199,10 @@ pub async fn create_sticker(
     let sticker = {
         let mut store = state.store.write().map_err(|_| ApiError::Internal)?;
         require_member(&store, &server_id, &user.id)?;
+        let max_stickers = store.max_stickers_for(&server_id, &user.id);
         let list = store.stickers.entry(server_id.clone()).or_default();
-        if list.len() >= 24 {
-            return Err(ApiError::BadRequest("maximum 24 stickers per server".into()));
+        if list.len() >= max_stickers {
+            return Err(ApiError::BadRequest(format!("maximum {max_stickers} stickers per server")));
         }
         let s = ServerSticker {
             id: new_id(),

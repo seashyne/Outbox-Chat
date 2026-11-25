@@ -3,6 +3,7 @@
  * member list, voice occupancy bar/panel, typing row, and reply bar.
  */
 
+import { planBadgeHtml } from './account_ui.js';
 import { renderHomeSidebar } from './friends_ui.js';
 import { t } from './i18n.js';
 import { renderMeetingStage } from './meeting_ui.js';
@@ -50,6 +51,8 @@ export function renderRail() {
     <div class="rail-divider"></div>
     ${servers}
     <button class="rail-btn add" data-action="create-server" title="${escapeHtml(t('rail.createServer'))}" data-tooltip="${escapeHtml(t('rail.createServer'))}" aria-label="${escapeHtml(t('rail.createServer'))}">+</button>
+    <button class="rail-btn theme" data-action="open-store" title="${escapeHtml(t('rail.store'))}" data-tooltip="${escapeHtml(t('rail.store'))}" aria-label="${escapeHtml(t('rail.store'))}">${ICONS.store}</button>
+    ${state.account?.is_platform_admin ? `<button class="rail-btn theme" data-action="open-admin" title="${escapeHtml(t('rail.admin'))}" data-tooltip="${escapeHtml(t('rail.admin'))}" aria-label="${escapeHtml(t('rail.admin'))}">${ICONS.adminShield}</button>` : ''}
     <button class="rail-btn theme" data-action="theme" title="${escapeHtml(t('rail.settings'))}" data-tooltip="${escapeHtml(t('rail.settings'))}" aria-label="${escapeHtml(t('rail.settings'))}">${ICONS.settings}</button>`;
 }
 
@@ -185,7 +188,7 @@ export function renderUserPanel() {
   $('userPanel').innerHTML = `
     <button class="user-identity" data-action="my-status" title="${escapeHtml(t('status.changeTitle'))}">
       <span class="avatar-wrap">${avatar(meProf, 'sm')}<span class="status-dot ${status.dot}"></span></span>
-      <span class="who"><b>${escapeHtml(meProf.display_name)}</b><span>${escapeHtml(subStatus)}</span></span>
+      <span class="who"><b>${escapeHtml(meProf.display_name)} ${planBadgeHtml(meProf.plan || state.account?.plan)}</b><span>${escapeHtml(subStatus)}</span></span>
     </button>
     <span class="user-controls">
       <button class="icon-btn ${state.muted ? 'off' : ''}" data-action="toggle-mute" title="${escapeHtml(state.muted ? t('voice.unmuteMic') : t('voice.muteMic'))}" aria-label="${escapeHtml(t('voice.micLabel'))}">${ICONS.mic}</button>
@@ -260,7 +263,7 @@ export function renderMembers() {
     <button class="member ${on ? 'online' : ''}" data-action="profile" data-id="${escapeHtml(m.id)}">
       <span class="avatar-wrap">${avatar(m, 'sm')}<span class="status-dot ${dot}"></span></span>
       <span class="who">
-        <span class="m-name" style="${showBadge ? `color:${rMeta.color}` : ''}">${escapeHtml(m.display_name)}</span>
+        <span class="m-name" style="${showBadge ? `color:${rMeta.color}` : ''}">${escapeHtml(m.display_name)}</span>${planBadgeHtml(m.plan)}
         ${subLine ? `<span class="m-activity">${escapeHtml(subLine)}</span>` : ''}
       </span>
       ${showBadge ? `<span class="member-role" style="background:${rMeta.color}" title="${escapeHtml(rMeta.label)}"></span>` : ''}

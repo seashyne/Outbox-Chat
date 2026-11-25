@@ -181,3 +181,68 @@
 }
 @media (max-width: 560px) { .template-grid, .srv-two-col, .srv-role-grid { grid-template-columns: 1fr; } }
 
+/* Account security, storefront plans, badges, and platform admin console */
+.plan-pill {
+  display: inline-flex; align-items: center; padding: 1px 6px; border-radius: 999px;
+  font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+}
+.plan-pill.plus { background: color-mix(in srgb, var(--brand) 22%, transparent); color: var(--brand); border: 1px solid color-mix(in srgb, var(--brand) 48%, transparent); }
+.plan-pill.pro { background: linear-gradient(135deg, #f59e0b, #ec4899); color: #fff; }
+.plan-pill.free { background: var(--elevated); color: var(--muted); border: 1px solid var(--border); }
+.account-sec-box {
+  margin-top: 16px; padding: 12px; border-radius: 10px;
+  background: var(--sidebar); border: 1px solid var(--border);
+}
+.account-sec-head { display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 13px; margin-bottom: 10px; }
+.account-plan-card {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 10px; border-radius: 8px; background: var(--input); border: 1px solid var(--border); margin-bottom: 10px;
+}
+.account-plan-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.account-plan-meta b { font-size: 13px; }
+.account-plan-meta span { font-size: 11.5px; color: var(--muted); }
+.account-sec-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.btn-primary-sm, .btn-secondary-sm, .btn-danger-sm {
+  padding: 7px 12px; border-radius: 7px; font-size: 12.5px; font-weight: 600; cursor: pointer;
+}
+.btn-primary-sm { background: var(--brand); color: #fff; }
+.btn-secondary-sm { background: var(--elevated); border: 1px solid var(--border); color: var(--text); }
+.btn-danger-sm { background: color-mix(in srgb, #ef4444 16%, transparent); border: 1px solid color-mix(in srgb, #ef4444 50%, transparent); color: #f87171; }
+.store-mode-banner { padding: 8px 10px; border-radius: 8px; font-size: 12px; margin-bottom: 10px; border: 1px solid var(--border); }
+.store-mode-banner.live { background: color-mix(in srgb, #22c55e 14%, transparent); border-color: color-mix(in srgb, #22c55e 45%, transparent); }
+.store-mode-banner.sandbox { background: color-mix(in srgb, var(--brand) 14%, transparent); border-color: color-mix(in srgb, var(--brand) 42%, transparent); }
+.store-method-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; font-size: 12.5px; }
+.store-method-pills, .admin-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.method-pill { padding: 6px 11px; border-radius: 999px; font-size: 12px; background: var(--input); border: 1px solid var(--border); cursor: pointer; }
+.method-pill.active { background: var(--brand); color: #fff; border-color: var(--brand); }
+.store-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+.plan-card { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 10px; background: var(--input); border: 2px solid var(--border); }
+.plan-card.active { border-color: var(--brand); background: var(--active); }
+.plan-card-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.plan-price { font-size: 13px; color: var(--muted); }
+.plan-price strong { font-size: 20px; color: var(--text); }
+.plan-perks { margin: 0; padding-left: 16px; font-size: 12px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.store-orders-head { font-size: 12.5px; font-weight: 700; margin-bottom: 6px; }
+.store-orders-list, .admin-list { display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow-y: auto; }
+.order-row, .admin-user-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 8px 10px; border-radius: 8px; background: var(--input); border: 1px solid var(--border); font-size: 12px;
+}
+.order-row div, .admin-user-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.order-right { text-align: right; }
+.order-status.paid { color: #22c55e; font-weight: 700; }
+.order-status.pending { color: #f59e0b; font-weight: 700; }
+.store-empty { font-size: 12px; color: var(--muted); padding: 8px 0; }
+.admin-tabs { margin-bottom: 10px; }
+.admin-stats-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.admin-stat-card { padding: 10px; border-radius: 9px; background: var(--input); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px; }
+.admin-stat-card span { font-size: 11.5px; color: var(--muted); }
+.admin-stat-card b { font-size: 18px; }
+.admin-user-title { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.admin-role-tag { font-size: 10px; padding: 1px 6px; border-radius: 999px; background: var(--elevated); border: 1px solid var(--border); color: var(--brand); }
+.admin-user-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.admin-plan-select { width: auto !important; min-height: 30px !important; padding: 3px 8px !important; font-size: 12px !important; }
+.admin-days-input { width: 58px !important; min-height: 30px !important; padding: 3px 6px !important; font-size: 12px !important; }
+@media (max-width: 640px) { .store-grid, .admin-stats-grid { grid-template-columns: 1fr; } }
+
+

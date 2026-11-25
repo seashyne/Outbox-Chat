@@ -37,7 +37,42 @@ export function cmp(a, b) {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
-/** Projects non-sensitive user fields safe for REST and WebSocket payloads. */
+export const FREE_UPLOAD_BYTES = 5 * 1024 * 1024;
+export const PLUS_UPLOAD_BYTES = 15 * 1024 * 1024;
+export const PRO_UPLOAD_BYTES = 25 * 1024 * 1024;
+
+/** Resolves effective active plan (`free | plus | pro`), falling back to `free` if expired. */
+export function activePlan(user) {
+  const p = user?.plan;
+  if (p !== "plus" && p !== "pro") return "free";
+  if (user.plan_expires_at) {
+    const ts = Date.parse(user.plan_expires_at);
+    if (!Number.isFinite(ts) || ts <= Date.now()) return "free";
+  }
+  return p;
+}
+
+/** Returns byte upload quota for a subscription tier. */
+export function uploadLimitForPlan(plan) {
+  if (plan === "pro") return PRO_UPLOAD_BYTES;
+  if (plan === "plus") return PLUS_UPLOAD_BYTES;
+  return FREE_UPLOAD_BYTES;
+}
+
+/** Projects private account metadata safe only for `@me` and bootstrap. */
+export function accountSummary(user) {
+  const plan = activePlan(user);
+  return {
+    email: user.email || null,
+    plan,
+    plan_expires_at: user.plan_expires_at || null,
+    max_upload_bytes: uploadLimitForPlan(plan),
+    max_stickers: plan === "pro" ? 48 : 24,
+    is_platform_admin: Boolean(user.platform_admin),
+  };
+}
+
+/** Projects public user fields without credentials or email. */
 export function publicUser(user) {
   return {
     id: user.id,
@@ -49,6 +84,8 @@ export function publicUser(user) {
     bio: user.bio || "",
     status_text: user.status_text || "",
     bot: Boolean(user.bot),
+    plan: activePlan(user),
+    is_platform_admin: Boolean(user.platform_admin),
   };
 }
 

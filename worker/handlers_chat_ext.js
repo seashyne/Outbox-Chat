@@ -7,6 +7,7 @@ import { parseImageUrl } from "./handlers_friends.js";
 import {
   CORS_HEADERS,
   HttpError,
+  activePlan,
   cleanText,
   cmp,
   jsonResponse,
@@ -138,7 +139,9 @@ export async function handleCreateSticker(hub, request, serverId) {
 
   hub.store.stickers = hub.store.stickers || {};
   const list = hub.store.stickers[serverId] || [];
-  if (list.length >= 24) throw new HttpError(400, "maximum 24 stickers per server");
+  const srvOwner = hub.store.users[hub.store.servers[serverId]?.owner_id];
+  const maxStickers = activePlan(srvOwner) === "pro" || activePlan(user) === "pro" ? 48 : 24;
+  if (list.length >= maxStickers) throw new HttpError(400, `maximum ${maxStickers} stickers per server`);
 
   const sticker = {
     id: newId(),

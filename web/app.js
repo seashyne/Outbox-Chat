@@ -4,8 +4,10 @@
  */
 
 import { clearReply, clearSearch, insertMention, openDmChannel, renderAll, selectChannel, selectFriendsHome, selectServer, setCloseOverlaysHook, setReply, startDmWithUser, toggleSearch } from './js/actions.js';
+import { openPlatformAdminModal } from './js/admin_ui.js';
 import { handleError, setUnauthorizedHandler, toast } from './js/api.js';
 import { bindAuthEvents, logout, start, toggleTheme } from './js/auth.js';
+import { openStoreModal } from './js/billing_ui.js';
 import { openPinnedMessagesModal, openServerSearchModal, openStickerPickerModal } from './js/chat_features.js';
 import { bindMessageEvents, syncComposerAccess } from './js/composer.js';
 import { acceptFriendRequest, openDirectChat, sendFriendRequest } from './js/friends_ui.js';
@@ -53,6 +55,8 @@ $('rail').addEventListener('click', (e) => {
   else if (action === 'friends') selectFriendsHome();
   else if (action === 'create-server') openCreateServer();
   else if (action === 'directory') openDirectory();
+  else if (action === 'open-store') openStoreModal().catch(handleError);
+  else if (action === 'open-admin') openPlatformAdminModal().catch(handleError);
   else if (action === 'theme') openSettingsModal('appearance');
 });
 

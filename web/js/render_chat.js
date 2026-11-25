@@ -2,6 +2,7 @@
  * Message stream renderer, scroll tracking, and composer sizing helpers.
  */
 
+import { planBadgeHtml } from './account_ui.js';
 import { getPendingAttachments, renderMessageAttachments } from './attachments.js';
 import { hydrateLinkPreviews, renderLinkPreviews } from './chat_features.js';
 import { t } from './i18n.js';
@@ -134,7 +135,7 @@ export function renderMessages() {
           ${replyQuote}
           ${grouped ? '' : `<div class="meta">
             <button class="author" data-action="profile" data-id="${escapeHtml(author.id)}" style="color:${safeColor(author.color)}">${escapeHtml(author.display_name)}</button>
-            ${author.bot ? `<span class="bot-tag">${escapeHtml(t('common.bot'))}</span>` : ''}
+            ${author.bot ? `<span class="bot-tag">${escapeHtml(t('common.bot'))}</span>` : ''}${planBadgeHtml(author.plan)}
             ${m.pinned ? `<span class="pin-tag">${ICONS.pin} ${escapeHtml(t('chat.pinnedTag'))}</span>` : ''}
             <span class="time" title="${escapeHtml(fmtFull(m.created_at))}">${fmtTime(m.created_at)}</span>
           </div>`}

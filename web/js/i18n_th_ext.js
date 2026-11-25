@@ -2,7 +2,10 @@
  * Extended settings, voice, and meeting UI translations (`th`).
  */
 
+import p4 from './i18n_th_p4.js';
+
 export default {
+  ...p4,
   'settings.title': 'ตั้งค่าผู้ใช้ ธีม และภาษา',
   'settings.closeTitle': 'ปิด (Esc)',
   'settings.closeAria': 'ปิดหน้าต่างตั้งค่า',

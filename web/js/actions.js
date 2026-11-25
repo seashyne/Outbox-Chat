@@ -65,6 +65,7 @@ export function renderAll() {
 export async function loadBootstrap() {
   const [data] = await Promise.all([api('/bootstrap'), loadFriends()]);
   state.me = data.me;
+  state.account = data.account || null;
   state.servers = data.servers;
   state.online = new Set(data.online);
   state.voice = data.voice || {};

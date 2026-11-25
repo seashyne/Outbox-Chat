@@ -221,6 +221,7 @@ export class OutboxHub extends DurableObject {
     const userId = token ? this.store.tokens[token] : null;
     const user = userId ? this.store.users[userId] : null;
     if (!user) throw new HttpError(401, "invalid or missing token");
+    if (user.suspended) throw new HttpError(403, "account is suspended");
     return user;
   }
 

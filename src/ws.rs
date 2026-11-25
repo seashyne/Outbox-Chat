@@ -32,6 +32,9 @@ pub async fn ws_handler(
             .cloned()
             .ok_or(ApiError::Unauthorized)?
     };
+    if user.suspended {
+        return Err(ApiError::Forbidden("account is suspended"));
+    }
     Ok(ws.on_upgrade(move |socket| handle_socket(socket, state, user)))
 }
 

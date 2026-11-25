@@ -5,6 +5,7 @@
 
 import { loadBootstrap, loadMessages, renderAll } from './actions.js';
 import { api, handleError } from './api.js';
+import { handleCheckoutReturnFromUrl } from './billing_ui.js';
 import { apiUrl } from './config.js';
 import { getLanguage, renderLanguageOptions, setLanguage, t, translateApiError } from './i18n.js';
 import { consumePendingInvite } from './invites_ui.js';
@@ -109,6 +110,7 @@ export function logout(expired = false) {
   leaveMeetingRoom(state.joinedVoiceChannelId, () => {}).catch(() => {});
   state.token = '';
   state.me = null;
+  state.account = null;
   state.servers = [];
   state.messages = [];
   state.messageCache.clear();
@@ -160,6 +162,7 @@ export async function start() {
   await loadMessages();
   connectWs();
   await consumePendingInvite();
+  await handleCheckoutReturnFromUrl();
 }
 
 export async function doAuth() {
@@ -216,6 +219,7 @@ export async function doAuth() {
       throw new Error(data.error ? translateApiError(data.error) : fallback);
     }
     state.token = data.token;
+    if (data.account) state.account = data.account;
     localStorage.setItem('ob_token', data.token);
     if ($('passwordInput')) $('passwordInput').value = '';
     await start();

@@ -3,6 +3,7 @@
 //! Covers `GET /api/users/@me/settings`, `PATCH /api/users/@me/settings`,
 //! and `PATCH /api/users/@me` with strict hex color and preset validation.
 
+use super::account::validate_email;
 use super::{clean_text, Auth};
 use crate::error::{ApiError, ApiResult};
 use crate::model::{Event, UpdateProfileRequest, UpdateSettingsRequest};
@@ -214,7 +215,11 @@ pub async fn update_profile(
         Some(raw) => Some(clean_profile_text(raw, 60, "status text")?),
         None => None,
     };
-    let public = {
+    let email_patch = match body.email.as_deref() {
+        Some(raw) => Some(validate_email(raw)?),
+        None => None,
+    };
+    let (public, account) = {
         let mut store = state.store.write().map_err(|_| ApiError::Internal)?;
         if let Some(ref handle) = handle_patch {
             let taken = store
@@ -223,6 +228,15 @@ pub async fn update_profile(
                 .any(|u| u.id != user.id && u.username.eq_ignore_ascii_case(handle));
             if taken {
                 return Err(ApiError::Conflict("username is already taken".into()));
+            }
+        }
+        if let Some(Some(ref mail)) = email_patch {
+            let taken = store
+                .users
+                .values()
+                .any(|u| u.id != user.id && u.email.as_deref().is_some_and(|e| e.eq_ignore_ascii_case(mail)));
+            if taken {
+                return Err(ApiError::Conflict("email is already in use".into()));
             }
         }
         let stored_user = store
@@ -258,7 +272,10 @@ pub async fn update_profile(
         if let Some(next_status) = status_patch {
             stored_user.status_text = next_status;
         }
-        stored_user.public()
+        if let Some(next_email) = email_patch {
+            stored_user.email = next_email;
+        }
+        (stored_user.public(), stored_user.account_summary())
     };
     state.persist();
     state.emit(Event::UserUpdate {
@@ -266,5 +283,6 @@ pub async fn update_profile(
     });
     Ok(Json(serde_json::json!({
         "user": public,
+        "account": account,
     })))
 }

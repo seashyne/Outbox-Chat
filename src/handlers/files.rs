@@ -2,7 +2,7 @@
 
 use super::{clean_text, require_member, Auth};
 use crate::error::{ApiError, ApiResult};
-use crate::model::{new_id, now, Attachment, AttachmentInput, ChannelKind, MediaGalleryItem};
+use crate::model::{new_id, now, Attachment, AttachmentInput, ChannelKind, MediaGalleryItem, PRO_UPLOAD_BYTES};
 use crate::state::AppState;
 use axum::body::{Body, Bytes};
 use axum::extract::{Path, Query, State};
@@ -66,8 +66,8 @@ pub(crate) fn validate_attachments(raw: &[AttachmentInput]) -> ApiResult<Vec<Att
                 return Err(ApiError::BadRequest("invalid attachment file url".into()));
             }
             let declared = item.size.unwrap_or(0);
-            if declared > MAX_UPLOAD_BYTES {
-                return Err(ApiError::BadRequest("attachment exceeds 5 MB limit".into()));
+            if declared > PRO_UPLOAD_BYTES {
+                return Err(ApiError::BadRequest("attachment exceeds maximum plan limit".into()));
             }
             declared
         } else {
@@ -138,8 +138,14 @@ pub async fn upload_file(
     headers: HeaderMap,
     body: Bytes,
 ) -> ApiResult<Json<UploadResponse>> {
-    if body.is_empty() || body.len() > MAX_UPLOAD_BYTES {
-        return Err(ApiError::BadRequest("file must be between 1 byte and 5 MB".into()));
+    let max_bytes = state
+        .store
+        .read()
+        .map(|s| s.max_upload_bytes_for(&user.id))
+        .unwrap_or(MAX_UPLOAD_BYTES);
+    if body.is_empty() || body.len() > max_bytes {
+        let mb = max_bytes / (1024 * 1024);
+        return Err(ApiError::BadRequest(format!("file must be between 1 byte and {mb} MB")));
     }
     let raw_mime = headers.get(header::CONTENT_TYPE).and_then(|v| v.to_str().ok()).unwrap_or("");
     let mime = raw_mime.split(';').next().unwrap_or("").trim().to_ascii_lowercase();

@@ -2,7 +2,10 @@
  * HTTP REST router and WebSocket Hibernation handlers for OutboxHub.
  */
 
+import { handleChangePassword, handleClaimPlatformAdmin, handleDeleteAccount, handleGetMe } from "./handlers_account.js";
+import { handleAdminListOrders, handleAdminListUsers, handleAdminOverview, handleAdminUpdateUser } from "./handlers_admin.js";
 import { handleBootstrap, handleGetSettings, handleLogin, handleLogout, handleRegister, handleUpdateProfile, handleUpdateSettings } from "./handlers_auth.js";
+import { handleCreateCheckout, handleListMyOrders, handleListPlans, handleSandboxComplete, handleStripeWebhook, handleSyncOrder } from "./handlers_billing.js";
 import { handleCreateChannel, handleCreateServer, handleDeleteChannel, handleJoinServer, handleLeaveServer, handleListServers, handleUpdateMemberRole, handleUpdateServer } from "./handlers_servers.js";
 import { handleCreateSticker, handleDeleteSticker, handleEditMessage, handleListPinnedMessages, handleListStickers, handlePreviewLink, handleSearchServerMessages, handleTogglePinMessage } from "./handlers_chat_ext.js";
 import { handleCreateInvite, handleDeleteInvite, handleJoinByInvite, handleListInvites, handlePreviewInvite } from "./handlers_invites.js";
@@ -40,11 +43,30 @@ export async function routeHubRequest(hub, request) {
     if (method === "GET" && path === "/api/bootstrap") return handleBootstrap(hub, request);
     if (method === "GET" && path === "/api/users/@me/settings") return handleGetSettings(hub, request);
     if (method === "PATCH" && path === "/api/users/@me/settings") return await handleUpdateSettings(hub, request);
+    if (method === "GET" && path === "/api/users/@me") return handleGetMe(hub, request);
     if (method === "PATCH" && path === "/api/users/@me") return await handleUpdateProfile(hub, request);
+    if (method === "DELETE" && path === "/api/users/@me") return await handleDeleteAccount(hub, request);
+    if (method === "POST" && path === "/api/users/@me/password") return await handleChangePassword(hub, request);
+    if (method === "POST" && path === "/api/users/@me/delete") return await handleDeleteAccount(hub, request);
+    if (method === "GET" && path === "/api/billing/plans") return handleListPlans(hub, request);
+    if (method === "GET" && path === "/api/billing/orders") return handleListMyOrders(hub, request);
+    if (method === "POST" && path === "/api/billing/checkout") return await handleCreateCheckout(hub, request);
+    if (method === "POST" && path === "/api/billing/sandbox-complete") return await handleSandboxComplete(hub, request);
+    if (method === "POST" && path === "/api/billing/webhook") return await handleStripeWebhook(hub, request);
+    if (method === "POST" && path === "/api/admin/claim") return await handleClaimPlatformAdmin(hub, request);
+    if (method === "GET" && path === "/api/admin/overview") return handleAdminOverview(hub, request);
+    if (method === "GET" && path === "/api/admin/users") return handleAdminListUsers(hub, request, url);
+    if (method === "GET" && path === "/api/admin/orders") return handleAdminListOrders(hub, request);
     if (method === "GET" && path === "/api/servers") return handleListServers(hub, request);
     if (method === "POST" && path === "/api/servers") return await handleCreateServer(hub, request);
 
     let m;
+    if (method === "GET" && (m = path.match(/^\/api\/billing\/orders\/([^/]+)\/sync$/))) {
+      return await handleSyncOrder(hub, request, decodeURIComponent(m[1]));
+    }
+    if (method === "PATCH" && (m = path.match(/^\/api\/admin\/users\/([^/]+)$/))) {
+      return await handleAdminUpdateUser(hub, request, decodeURIComponent(m[1]));
+    }
     if (method === "PATCH" && (m = path.match(/^\/api\/servers\/([^/]+)$/))) {
       return await handleUpdateServer(hub, request, decodeURIComponent(m[1]));
     }

@@ -104,6 +104,12 @@ export function translateApiError(raw) {
     'you are currently timed out in this server': 'mod.timedOutNotice',
     'you are banned from this server': 'mod.bannedError',
     'you cannot access this channel': 'perm.hiddenError',
+    'account is suspended': 'account.suspendedError',
+    'current password is incorrect': 'account.currentPasswordWrong',
+    'password confirmation is incorrect': 'account.deletePasswordWrong',
+    'email is already in use': 'account.emailInUse',
+    'invalid email address': 'account.invalidEmail',
+    'sticker limit reached for your plan': 'billing.stickerLimitPlan',
   };
   const key = map[lower];
   return key ? t(key) : msg;

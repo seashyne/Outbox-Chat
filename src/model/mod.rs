@@ -3,12 +3,14 @@
 //! Splits data entities (`mod.rs`), persistence/indexing store (`store.rs`),
 //! and REST/WebSocket wire payloads (`payloads.rs`).
 
+mod account_commerce;
 mod events;
 mod payloads;
 mod phase23;
 mod social;
 mod store;
 
+pub use account_commerce::*;
 pub use events::*;
 pub use payloads::*;
 pub use phase23::*;
@@ -97,6 +99,9 @@ impl Default for UserSettings {
 
 /// Stored user record. Secrets (`token`, `password_hash`, `password_salt`)
 /// must never be serialized to other clients — always project via `public()`.
+fn default_free() -> String { "free".into() }
+fn default_accent_color() -> String { "#5865f2".into() }
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct User {
     pub id: Id,
@@ -111,6 +116,16 @@ pub struct User {
     pub bio: String,
     #[serde(default)]
     pub status_text: String,
+    #[serde(default)]
+    pub email: Option<String>,
+    #[serde(default = "default_free")]
+    pub plan: String,
+    #[serde(default)]
+    pub plan_expires_at: Option<String>,
+    #[serde(default)]
+    pub suspended: bool,
+    #[serde(default)]
+    pub platform_admin: bool,
     pub token: String,
     pub bot: bool,
     pub created_at: String,
@@ -135,11 +150,13 @@ impl User {
             bio: self.bio.clone(),
             status_text: self.status_text.clone(),
             bot: self.bot,
+            plan: self.active_plan().to_string(),
+            is_platform_admin: self.platform_admin,
         }
     }
 }
 
-/// Publicly visible user identity without credentials or settings.
+/// Publicly visible user identity without credentials, email, or settings.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PublicUser {
     pub id: Id,
@@ -155,50 +172,10 @@ pub struct PublicUser {
     #[serde(default)]
     pub status_text: String,
     pub bot: bool,
-}
-
-/// Configurable display labels, badge colors, and member permissions for server roles.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub struct ServerRolesConfig {
-    #[serde(default = "default_owner_label")]
-    pub owner_label: String,
-    #[serde(default = "default_admin_label")]
-    pub admin_label: String,
-    #[serde(default = "default_member_label")]
-    pub member_label: String,
-    #[serde(default = "default_admin_color")]
-    pub admin_color: String,
-    #[serde(default = "default_member_color")]
-    pub member_color: String,
-    #[serde(default = "default_true")]
-    pub allow_member_create_channel: bool,
-}
-
-fn default_owner_label() -> String {
-    "เจ้าของเซิร์ฟเวอร์".into()
-}
-fn default_admin_label() -> String {
-    "ผู้ดูแลระบบ".into()
-}
-fn default_member_label() -> String {
-    "สมาชิก".into()
-}
-fn default_admin_color() -> String { "#f59e0b".into() }
-fn default_member_color() -> String { "#94a3b8".into() }
-fn default_accent_color() -> String { "#5865f2".into() }
-fn default_true() -> bool { true }
-
-impl Default for ServerRolesConfig {
-    fn default() -> Self {
-        Self {
-            owner_label: default_owner_label(),
-            admin_label: default_admin_label(),
-            member_label: default_member_label(),
-            admin_color: default_admin_color(),
-            member_color: default_member_color(),
-            allow_member_create_channel: true,
-        }
-    }
+    #[serde(default = "default_free")]
+    pub plan: String,
+    #[serde(default)]
+    pub is_platform_admin: bool,
 }
 
 /// Guild / workspace container holding channels and members.

@@ -210,7 +210,7 @@ export function handleEvent(event) {
     case 'user_update': {
       const updated = event.user;
       if (!updated) break;
-      if (state.me?.id === updated.id) { state.me = { ...state.me, ...updated }; renderUserPanel(); }
+      if (state.me?.id === updated.id) { state.me = { ...state.me, ...updated }; if (updated.plan) state.account = { ...(state.account || {}), plan: updated.plan }; renderUserPanel(); }
       for (const s of state.servers) {
         const idx = s.members.findIndex((m) => m.id === updated.id);
         if (idx !== -1) s.members[idx] = { ...s.members[idx], ...updated };

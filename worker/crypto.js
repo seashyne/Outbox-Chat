@@ -71,3 +71,16 @@ export async function hashPassword(password, saltHex) {
 export function utf8Length(str) {
   return textEncoder.encode(str).length;
 }
+
+/** Computes lowercase hex HMAC-SHA256 digest using Web Crypto. */
+export async function hmacSha256Hex(secret, message) {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    textEncoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, textEncoder.encode(message));
+  return bytesToHex(new Uint8Array(sig));
+}

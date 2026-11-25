@@ -8,7 +8,7 @@ import { t } from './i18n.js';
 import { resolveMediaUrl, uploadBinaryAttachment } from './media_gallery.js';
 import { openModal } from './modals.js';
 import { resizeImageFile } from './profile_helpers.js';
-import { $, ICONS, escapeHtml } from './state.js';
+import { $, ICONS, escapeHtml, state } from './state.js';
 
 const MAX_FILES = 4;
 const MAX_INLINE_BYTES = 360000;
@@ -79,8 +79,9 @@ export async function addAttachmentFiles(fileList) {
       toast(t('chat.attachBadType'), 'err');
       continue;
     }
-    if (file.size > MAX_UPLOAD_BYTES) {
-      toast(t('chat.attachTooBig'), 'err');
+    if (file.size > (state.account?.max_upload_bytes || MAX_UPLOAD_BYTES)) {
+      const mb = Math.round((state.account?.max_upload_bytes || MAX_UPLOAD_BYTES) / (1024 * 1024));
+      toast(t('chat.attachTooBigDynamic', { mb }), 'err');
       continue;
     }
     try {

@@ -1,8 +1,8 @@
 //! REST API request/response DTOs and WebSocket event definitions.
 
 use super::{
-    AttachmentInput, Channel, ChannelKind, Id, PublicUser, Role, ServerProfile, ServerRolesConfig,
-    ServerSticker, UserSettings,
+    AccountSummary, AttachmentInput, Channel, ChannelKind, Id, PublicUser, Role, ServerProfile,
+    ServerRolesConfig, ServerSticker, UserSettings,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -17,6 +17,7 @@ pub struct RegisterRequest {
 pub struct RegisterResponse {
     pub token: String,
     pub user: PublicUser,
+    pub account: AccountSummary,
 }
 
 #[derive(Debug, Deserialize)]
@@ -29,6 +30,7 @@ pub struct LoginRequest {
 pub struct LoginResponse {
     pub token: String,
     pub user: PublicUser,
+    pub account: AccountSummary,
 }
 
 #[derive(Debug, Deserialize, Default, Clone)]
@@ -124,6 +126,8 @@ pub struct ServerMemberView {
     pub status_text: String,
     pub bot: bool,
     pub role: Role,
+    #[serde(default)]
+    pub plan: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -168,6 +172,8 @@ pub struct UpdateProfileRequest {
     pub bio: Option<String>,
     #[serde(default)]
     pub status_text: Option<String>,
+    #[serde(default)]
+    pub email: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -206,6 +212,7 @@ pub struct ServerSummary {
 #[derive(Debug, Serialize)]
 pub struct Bootstrap {
     pub me: PublicUser,
+    pub account: AccountSummary,
     pub settings: UserSettings,
     pub servers: Vec<ServerView>,
     pub channels: HashMap<Id, Vec<Channel>>,

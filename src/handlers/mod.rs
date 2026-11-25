@@ -3,9 +3,12 @@
 //! Every handler validates auth + membership, mutates the shared store,
 //! persists it and emits a realtime event for connected WebSocket clients.
 
+pub mod account;
+pub mod admin;
 pub mod auth;
 #[cfg(test)]
 mod auth_tests;
+pub mod billing;
 pub mod channels;
 pub mod chat_ext;
 pub mod files;
@@ -17,11 +20,15 @@ pub mod server_templates;
 pub mod servers;
 #[cfg(test)]
 mod settings_tests;
+pub mod stripe_client;
 pub mod threads;
 pub mod users;
 pub mod voice;
 
+pub use account::{change_password, claim_platform_admin, delete_account, get_me};
+pub use admin::{admin_list_orders, admin_list_users, admin_overview, admin_update_user};
 pub use auth::{bootstrap, login, logout, register};
+pub use billing::{create_checkout, list_my_orders, list_plans, sandbox_complete, stripe_webhook, sync_order};
 pub use channels::{create_channel, delete_channel, update_channel};
 pub use chat_ext::{
     create_sticker, delete_sticker, edit_message, list_pinned_messages, list_stickers,
@@ -77,7 +84,11 @@ impl FromRequestParts<Arc<AppState>> for Auth {
                 .and_then(|user_id| store.users.get(user_id))
                 .cloned()
         };
-        user.map(Auth).ok_or(ApiError::Unauthorized)
+        match user {
+            Some(u) if u.suspended => Err(ApiError::Forbidden("account is suspended")),
+            Some(u) => Ok(Auth(u)),
+            None => Err(ApiError::Unauthorized),
+        }
     }
 }
 

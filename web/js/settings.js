@@ -5,6 +5,7 @@
  */
 
 import { updateMyStatus } from './actions.js';
+import { syncAccountSettingsSection } from './account_ui.js';
 import { api, toast } from './api.js';
 import { closeOverlays } from './menus.js';
 import { bindBackdropDismiss } from './modals.js';
@@ -24,6 +25,7 @@ let draftAvatarColor = '#5865f2';
 let draftAvatarUrl = '';
 let draftBannerUrl = '';
 let lastSettingsFocus = null;
+let logoutCallback = null;
 
 function loadScopeFields() {
   if (!state.me) return;
@@ -47,6 +49,7 @@ function loadScopeFields() {
   draftAvatarUrl = isSrv ? (sp.avatar_url || '') : (state.me.avatar_url || '');
   draftBannerUrl = isSrv ? (sp.banner_url || '') : (state.me.banner_url || '');
   $('settingsStatusSelect').value = state.myStatus || 'online';
+  syncAccountSettingsSection(!isSrv, logoutCallback);
   syncSettingsPreview();
 }
 
@@ -196,6 +199,7 @@ export async function saveProfileSettings() {
     return;
   }
 
+  const emailVal = $('settingsEmail') ? $('settingsEmail').value.trim() : undefined;
   btn.disabled = true;
   try {
     const profileRes = await api('/users/@me', {
@@ -208,8 +212,10 @@ export async function saveProfileSettings() {
         banner_url: draftBannerUrl || '',
         bio,
         status_text: statusText,
+        ...(emailVal !== undefined ? { email: emailVal } : {}),
       }),
     });
+    if (profileRes?.account) state.account = profileRes.account;
     if (profileRes?.user) {
       state.me = profileRes.user;
       for (const s of state.servers) {
@@ -243,6 +249,7 @@ export async function saveProfileSettings() {
 
 /** Wires DOM listeners for global/per-server profile, images, status, and appearance. */
 export function bindSettingsEvents(onLogout) {
+  logoutCallback = onLogout;
   $('settingsClose').addEventListener('click', () => closeSettingsModal(true));
   bindBackdropDismiss($('settingsBackdrop'), () => closeSettingsModal(true));
   document.querySelectorAll('.settings-tab').forEach((tabBtn) => {

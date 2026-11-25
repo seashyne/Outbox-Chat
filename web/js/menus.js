@@ -2,6 +2,7 @@
  * Popout menus, context dropdowns, and clean text reaction picker.
  */
 
+import { planBadgeHtml } from './account_ui.js';
 import { toggleReaction } from './actions.js';
 import { t } from './i18n.js';
 import { autoGrow } from './render_chat.js';
@@ -150,7 +151,7 @@ export function openProfile(userId, anchor) {
     <div class="pp-banner" style="${bannerStyle(user)}"></div>
     <div class="pp-avatar"><span class="avatar-wrap">${avatar(user, 'lg')}<span class="status-dot ${isMe ? myStatusDot() : (online ? statusDotFor(userStatusKey(userId)) : '')}"></span></span></div>
     <div class="pp-body">
-      <b class="pp-name">${escapeHtml(user.display_name)}</b>
+      <b class="pp-name">${escapeHtml(user.display_name)} ${planBadgeHtml(user.plan)}</b>
       <span class="pp-username">@${escapeHtml(user.username)}</span>
       ${user.status_text ? `<div class="pp-status-note">${escapeHtml(user.status_text)}</div>` : ''}
       ${user.bio ? `<div class="pp-bio">${escapeHtml(user.bio)}</div>` : ''}

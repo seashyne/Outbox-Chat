@@ -10,6 +10,7 @@ export function handleWsUpgrade(hub, url) {
   const userId = token ? hub.store.tokens[token] : null;
   const user = userId ? hub.store.users[userId] : null;
   if (!user) throw new HttpError(401, "invalid or missing token");
+  if (user.suspended) throw new HttpError(403, "account is suspended");
 
   const [client, server] = Object.values(new WebSocketPair());
   hub.ctx.acceptWebSocket(server);

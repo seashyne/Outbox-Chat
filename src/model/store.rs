@@ -4,9 +4,10 @@
 //! keeping a relational table shape (`users`, `servers`, `channels`, `messages`, `members`).
 
 use super::{
-    new_token, now, AuditLogEntry, Channel, ChannelKind, ChannelThread, ChannelVisibility,
-    FriendEdge, Id, Message, MessageView, ReactionView, ReplyPreview, Role, Server, ServerBan,
-    ServerInvite, ServerProfile, ServerRolesConfig, ServerSticker, User, UserSettings,
+    new_token, now, AuditLogEntry, BillingOrder, Channel, ChannelKind, ChannelThread,
+    ChannelVisibility, FriendEdge, Id, Message, MessageView, ReactionView, ReplyPreview, Role,
+    Server, ServerBan, ServerInvite, ServerProfile, ServerRolesConfig, ServerSticker, User,
+    UserSettings,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -46,6 +47,12 @@ pub struct Store {
     /// server_id -> audit log entries (newest last)
     #[serde(default)]
     pub audit_logs: HashMap<Id, Vec<AuditLogEntry>>,
+    /// order_id -> BillingOrder
+    #[serde(default)]
+    pub orders: HashMap<Id, BillingOrder>,
+    /// stripe checkout_session_id -> order_id
+    #[serde(default)]
+    pub stripe_session_orders: HashMap<String, Id>,
     /// In-memory lookup: message_id -> channel_id (rebuilt on load/seed).
     #[serde(skip)]
     pub message_index: HashMap<Id, Id>,
@@ -205,6 +212,11 @@ impl Store {
             banner_url: None,
             bio: String::new(),
             status_text: String::new(),
+            email: None,
+            plan: "free".into(),
+            plan_expires_at: None,
+            suspended: false,
+            platform_admin: false,
             token: new_token(),
             bot: true,
             created_at: now(),
